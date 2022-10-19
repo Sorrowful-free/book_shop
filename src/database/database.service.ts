@@ -4,22 +4,25 @@ import { UserDto } from "../dto/user-dto";
 @Injectable()
 export class DatabaseService {
   private readonly users: UserDto[] = [
-    { user_id: 1, user_name: "admin", pass: "admin" },
-    { user_id: 42, user_name: "vasya", pass: "super_puper_pass" }
+    { userid: 1, username: "admin", password: "admin" },
+    { userid: 42, username: "vasya", password: "super_puper_pass" }
   ];
-  findUserByUserName(userName: string, pass: string): UserDto | undefined {
-    const user = this.users.find((e) => e.user_name === userName);
-    if (!user) {
+  findUserByUserName(
+    userName: string,
+    pass: string
+  ): Promise<UserDto> | Promise<undefined> {
+    const user = this.users.find((e) => e.username === userName);
+    if (!user || user.password !== pass) {
       throw new NotFoundException(`user with username ${userName} not found`);
     }
-    return user;
+    return Promise.resolve(user);
   }
 
-  findUserById(userId: number): UserDto | undefined {
-    const user = this.users.find((e) => e.user_id === userId);
+  findUserById(userId: number): Promise<UserDto> | Promise<undefined> {
+    const user = this.users.find((e) => e.userid === userId);
     if (!user) {
       throw new NotFoundException(`user with user id ${userId} not found`);
     }
-    return user;
+    return Promise.resolve(user);
   }
 }

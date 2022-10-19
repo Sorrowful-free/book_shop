@@ -2,9 +2,9 @@ import { IsString } from "class-validator";
 
 export class UserDto {
   @IsString()
-  readonly user_id: number;
+  readonly userid: number;
   @IsString()
-  readonly user_name: string;
+  readonly username: string;
   @IsString()
-  readonly pass: string;
+  readonly password: string;
 }

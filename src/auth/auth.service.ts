@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { SuccessLoginDto } from "../dto/success-login.dto";
-import { JwtService } from "@nestjs/jwt";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { AuthTokensDto } from "../dto/auth-tokens.dto";
+import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { JwtConfig } from "../configs/jwt-config";
 import { DatabaseService } from "../database/database.service";
 import { JwtTokenPayloadDto } from "../dto/jwt-token-payload-dto";
@@ -14,48 +14,62 @@ export class AuthService {
     private readonly databaseService: DatabaseService
   ) {}
 
-  login(userName: string, pass: string): SuccessLoginDto {
-    const user = this.databaseService.findUserByUserName(userName, pass);
+  async login(username: string, password: string): Promise<AuthTokensDto> {
+    const user = await this.databaseService.findUserByUserName(
+      username,
+      password
+    );
+    if (!user || user.password !== password) {
+      throw new NotFoundException(`user with name :${username} not found`);
+    }
+    return this.getAuthTokens(user);
+  }
 
-    const accessToken = this.jwtService.sign(this.getAccessTokenPayLoad(user), {
-      secret: this.jwtConfig.secret
-    });
+  async refresh(userId: number): Promise<AuthTokensDto> {
+    const user = await this.databaseService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException(`user with user id :${userId} not found`);
+    }
+    return this.getAuthTokens(user);
+  }
+
+  private getAuthTokens(user: UserDto): AuthTokensDto {
+    const accessToken = this.jwtService.sign(
+      this.getAccessTokenPayLoad(user),
+      this.getJwtSignOptions(this.jwtConfig.accessTokenExpiresIn)
+    );
 
     const refreshToken = this.jwtService.sign(
       this.getRefreshTokenPayLoad(user),
-      { secret: this.jwtConfig.secret }
+      this.getJwtSignOptions(this.jwtConfig.refreshTokenExpiresIn)
     );
+
     return {
       access_token: accessToken,
-      access_token_expires_in: this.jwtConfig.accessTokenExpiresInHours,
       refresh_token: refreshToken,
-      refresh_token_expires_in: this.jwtConfig.refreshTokenExpiresInHours
+      access_token_expires_in: this.jwtConfig.accessTokenExpiresIn,
+      refresh_token_expires_in: this.jwtConfig.refreshTokenExpiresIn
     };
   }
 
   private getAccessTokenPayLoad(user: UserDto): JwtTokenPayloadDto {
     return {
-      user_id: user.user_id,
-      user_name: user.user_name,
-      pass: user.pass,
-      expires_in: this.getExpirationDate(
-        this.jwtConfig.accessTokenExpiresInHours
-      )
+      userid: user.userid,
+      username: user.username,
+      password: user.password
     };
   }
 
   private getRefreshTokenPayLoad(user: UserDto): JwtTokenPayloadDto {
     return {
-      user_id: user.user_id,
-      expires_in: this.getExpirationDate(
-        this.jwtConfig.refreshTokenExpiresInHours
-      )
+      userid: user.userid
     };
   }
 
-  private getExpirationDate(expiresInHours: number): Date {
-    const expirationDate = new Date(Date.now());
-    expirationDate.setHours(expirationDate.getHours() + expiresInHours);
-    return expirationDate;
+  private getJwtSignOptions(expiresIn: number): JwtSignOptions {
+    return {
+      secret: this.jwtConfig.secret,
+      expiresIn: expiresIn
+    };
   }
 }
