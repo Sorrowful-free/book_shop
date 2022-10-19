@@ -21,7 +21,6 @@ export class JwtPassportStrategy extends PassportStrategy(Strategy) {
   async validate(
     tokenPayload: JwtTokenPayloadDto
   ): Promise<JwtTokenPayloadDto> {
-    console.log(JSON.stringify(tokenPayload));
     return Promise.resolve(tokenPayload);
   }
 }
