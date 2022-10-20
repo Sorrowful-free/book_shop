@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import {
   AdminJwtAuthGuard,
+  EmployerJwtAuthGuard,
   JwtAuthGuard
 } from "../auth/auth-guards/jwt-auth-guard";
 import { BookService } from "./book.service";
@@ -37,7 +38,7 @@ export class BookController {
     return this.bookService.findByName(bookName);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(EmployerJwtAuthGuard)
   @Post("create")
   create(
     @User() user: JwtAccessTokenPayloadDto,
@@ -46,7 +47,7 @@ export class BookController {
     return this.bookService.create(bookDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(EmployerJwtAuthGuard)
   @Patch("update")
   update(
     @User() user: JwtAccessTokenPayloadDto,

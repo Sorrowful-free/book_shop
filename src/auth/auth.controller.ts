@@ -4,7 +4,7 @@ import { AuthService } from "./auth.service";
 import { LocalAuthGuard } from "./auth-guards/local-auth-guard";
 import { User } from "../decorators/user.decorator";
 import { JwtAccessTokenPayloadDto } from "../dto/jwt-access-token-payload-dto";
-import { JwtAuthGuard } from "./auth-guards/jwt-auth-guard";
+import { AnyJwtAuthGuard, JwtAuthGuard } from "./auth-guards/jwt-auth-guard";
 import { UserDto } from "../dto/user-dto";
 
 @Controller("auth")
@@ -18,7 +18,7 @@ export class AuthController {
     return this.authService.login(user_name, password);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AnyJwtAuthGuard)
   @Post("refresh")
   async refresh(
     @User() user: JwtAccessTokenPayloadDto
