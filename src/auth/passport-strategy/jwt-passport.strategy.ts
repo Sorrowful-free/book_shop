@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { JwtService } from "@nestjs/jwt";
 import { JwtConfig } from "../../configs/jwt-config";
 import { JwtAccessTokenPayloadDto } from "../../dto/jwt-access-token-payload-dto";
+import { UserDto } from "../../dto/user-dto";
 
 @Injectable()
 export class JwtPassportStrategy extends PassportStrategy(Strategy) {
@@ -21,6 +22,6 @@ export class JwtPassportStrategy extends PassportStrategy(Strategy) {
   async validate(
     tokenPayload: JwtAccessTokenPayloadDto
   ): Promise<JwtAccessTokenPayloadDto> {
-    return Promise.resolve(tokenPayload);
+    return Promise.resolve(<UserDto>tokenPayload);
   }
 }

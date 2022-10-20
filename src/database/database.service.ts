@@ -14,7 +14,7 @@ export class DatabaseService {
       user_role: UserRole.Admin
     },
     {
-      user_id: 1,
+      user_id: 2,
       user_name: "vitek",
       password: "super_puper_pass",
       user_role: UserRole.Employer

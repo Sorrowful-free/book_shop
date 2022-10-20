@@ -1,7 +1,7 @@
 import { IsEnum, IsNumber, IsString } from "class-validator";
 
 export enum UserRole {
-  Any,
+  None,
   Admin,
   Employer,
   Customer
