@@ -3,8 +3,9 @@ import { AuthTokensDto } from "../dto/auth-tokens.dto";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { JwtConfig } from "../configs/jwt-config";
 import { DatabaseService } from "../database/database.service";
-import { JwtTokenPayloadDto } from "../dto/jwt-token-payload-dto";
+import { JwtAccessTokenPayloadDto } from "../dto/jwt-access-token-payload-dto";
 import { UserDto } from "../dto/user-dto";
+import { JwtRefreshTokenPayloadDto } from "../dto/jwt-refresh-token-payload-dto";
 
 @Injectable()
 export class AuthService {
@@ -52,17 +53,17 @@ export class AuthService {
     };
   }
 
-  private getAccessTokenPayLoad(user: UserDto): JwtTokenPayloadDto {
+  private getAccessTokenPayLoad(user: UserDto): JwtAccessTokenPayloadDto {
     return {
-      userid: user.userid,
-      username: user.username,
-      password: user.password
+      user_id: user.user_id,
+      user_name: user.user_name,
+      user_role: user.user_role
     };
   }
 
-  private getRefreshTokenPayLoad(user: UserDto): JwtTokenPayloadDto {
+  private getRefreshTokenPayLoad(user: UserDto): JwtRefreshTokenPayloadDto {
     return {
-      userid: user.userid
+      user_id: user.user_id
     };
   }
 

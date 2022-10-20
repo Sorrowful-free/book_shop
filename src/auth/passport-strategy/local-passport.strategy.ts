@@ -7,7 +7,7 @@ import { UserDto } from "../../dto/user-dto";
 @Injectable()
 export class LocalPassportStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly databaseService: DatabaseService) {
-    super();
+    super({ usernameField: "login", passwordField: "password" });
   }
 
   async validate(username: string, password: string): Promise<UserDto> {
