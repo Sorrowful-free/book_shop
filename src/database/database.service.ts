@@ -3,6 +3,9 @@ import { UserDto, UserRole } from "../dto/user-dto";
 import { BookDto } from "../dto/book-dto";
 import { CreateBookDto } from "../dto/create-book-dto";
 import { UpdateBookDto } from "../dto/update-book-dto";
+import { InjectModel } from "@nestjs/mongoose";
+import { Book, BookDocument } from "../mongo-schemas/book";
+import { Model } from "mongoose";
 
 @Injectable()
 export class DatabaseService {
@@ -27,11 +30,9 @@ export class DatabaseService {
     }
   ];
 
-  private readonly books: BookDto[] = [
-    { book_id: 1, book_name: "book number 1", author: "vasya pupkin" },
-    { book_id: 2, book_name: "book number 2", author: "vasya pupkin" },
-    { book_id: 3, book_name: "book number 3", author: "vasya pupkin" }
-  ];
+  constructor(
+    @InjectModel(Book.name) private readonly bookModel: Model<BookDocument>
+  ) {}
 
   findUserByUserName(
     userName: string,
@@ -52,64 +53,67 @@ export class DatabaseService {
     return Promise.resolve(user);
   }
 
-  findAllBooks(): Promise<BookDto[]> {
-    return Promise.resolve(this.books);
+  async findAllBooks(): Promise<BookDto[]> {
+    const books = await this.bookModel.find().exec();
+    return books.map((e) => this.convertBook(e));
   }
 
-  findBookById(bookId: number): Promise<BookDto> {
-    const book = this.books.find((e) => e.book_id === bookId);
-    if (!book) {
+  async findBookById(bookId: any): Promise<BookDto> {
+    const mongoBook = await this.bookModel.findById(bookId).exec();
+    if (!mongoBook) {
       throw new NotFoundException(`book with id ${bookId} not found`);
     }
-    return Promise.resolve(book);
+    return this.convertBook(mongoBook);
   }
 
-  findBookByName(bookName: string): Promise<BookDto> {
-    const book = this.books.find((e) => e.book_name === bookName);
-    if (!book) {
+  async findBookByName(bookName: string): Promise<BookDto> {
+    const mongoBook = await this.bookModel
+      .findOne({ book_name: bookName })
+      .exec();
+    if (!mongoBook) {
       throw new NotFoundException(`book with name ${bookName} not found`);
     }
-    return Promise.resolve(book);
+    return this.convertBook(mongoBook);
   }
 
-  createBook(createBookDto: CreateBookDto): Promise<BookDto> {
-    const book_id = this.books[this.books.length - 1].book_id + 1;
-    const bookDto = <BookDto>{
-      book_id: book_id,
-      book_name: createBookDto.book_name,
-      author: createBookDto.author
-    };
-
-    this.books.push(bookDto);
-    return Promise.resolve(bookDto);
+  async createBook(createBookDto: CreateBookDto): Promise<BookDto> {
+    const createdBook = new this.bookModel(createBookDto);
+    return this.convertBook(await createdBook.save());
   }
 
-  updateBook(updateBookDto: UpdateBookDto): Promise<BookDto> {
-    const bookIndex = this.books.findIndex(
-      (e) => e.book_id == updateBookDto.book_id
+  async updateBook(updateBookDto: UpdateBookDto): Promise<BookDto> {
+    const mongoBook = await this.bookModel.findOneAndUpdate(
+      updateBookDto.book_id,
+      {
+        $set: {
+          book_name: updateBookDto.book_name,
+          author: updateBookDto.author
+        }
+      }
     );
-    if (bookIndex < 0) {
+    if (!mongoBook) {
       throw new NotFoundException(
         `book with id ${updateBookDto.book_id} not found`
       );
     }
-    const bookDto = this.books[bookIndex];
-    const updatedBookDto = <BookDto>{
-      book_id: bookDto.book_id,
-      book_name: updateBookDto.book_name ?? bookDto.book_name,
-      author: updateBookDto.author ?? bookDto.author
-    };
-
-    this.books[bookIndex] = updatedBookDto;
-    return Promise.resolve(updatedBookDto);
+    return this.convertBook(mongoBook);
   }
 
-  deleteBook(bookId: number): Promise<void> {
-    const bookIndex = this.books.findIndex((e) => e.book_id == bookId);
-    if (bookIndex < 0) {
+  async deleteBook(bookId: any): Promise<void> {
+    const result = await this.bookModel.findByIdAndDelete(bookId);
+
+    if (!result) {
       throw new NotFoundException(`book with id ${bookId} not found`);
     }
-    this.books.splice(bookIndex, 1);
+
     return Promise.resolve();
+  }
+
+  private convertBook(bookDocument: BookDocument): BookDto {
+    return {
+      book_id: bookDocument._id,
+      book_name: bookDocument.book_name,
+      author: bookDocument.author
+    };
   }
 }

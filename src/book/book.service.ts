@@ -12,7 +12,7 @@ export class BookService {
     return this.databaseService.findAllBooks();
   }
 
-  findById(bookId: number): Promise<BookDto> {
+  findById(bookId: any): Promise<BookDto> {
     return this.databaseService.findBookById(bookId);
   }
 
@@ -28,7 +28,7 @@ export class BookService {
     return this.databaseService.updateBook(bookDto);
   }
 
-  delete(bookId: number): Promise<void> {
+  delete(bookId: any): Promise<void> {
     return this.databaseService.deleteBook(bookId);
   }
 }

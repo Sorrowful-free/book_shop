@@ -26,7 +26,7 @@ export class BookController {
   }
 
   @Get("findById")
-  async findById(@Body("book_id") bookId: number): Promise<BookDto> {
+  async findById(@Body("book_id") bookId: any): Promise<BookDto> {
     return this.bookService.findById(bookId);
   }
 
@@ -66,15 +66,14 @@ export class BookController {
   }
 
   private checkUserRoles(user: UserDto, ...userRoles: UserRole[]): void {
-    console.log("user: " + JSON.stringify(user));
     for (let i = 0; i < userRoles.length; i++) {
       const userRole = userRoles[i];
       if (user.user_role == userRole) {
         return;
       }
-      throw new UnauthorizedException(
-        `users with role: #${UserRole[user.user_role]}# dont have permissions`
-      );
     }
+    throw new UnauthorizedException(
+      `users with role: #${UserRole[user.user_role]}# dont have permissions`
+    );
   }
 }

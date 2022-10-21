@@ -5,8 +5,8 @@ import { AuthModule } from "./auth/auth.module";
 import { ConfigsModule } from "./configs/configs.module";
 import { JwtModule } from "@nestjs/jwt";
 import { DatabaseModule } from "./database/database.module";
-import { APP_GUARD } from "@nestjs/core";
-import { JwtAuthGuard } from "./auth/auth-guards/jwt-auth-guard";
+import { MongooseModule } from "@nestjs/mongoose";
+import { MongooseConfig } from "./configs/mongoose-config";
 
 @Module({
   imports: [
@@ -15,8 +15,14 @@ import { JwtAuthGuard } from "./auth/auth-guards/jwt-auth-guard";
     AuthModule,
     UserModule,
     BookModule,
-    DatabaseModule
+    DatabaseModule,
+    MongooseModule.forRootAsync({
+      imports: [ConfigsModule],
+      useFactory: async (mongooseConfig: MongooseConfig) => ({
+        uri: mongooseConfig.uri
+      }),
+      inject: [MongooseConfig]
+    })
   ]
-  //providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }]
 })
 export class AppModule {}
