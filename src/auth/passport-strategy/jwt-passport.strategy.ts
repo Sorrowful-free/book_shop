@@ -19,9 +19,7 @@ export class JwtPassportStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(
-    tokenPayload: JwtAccessTokenPayloadDto
-  ): Promise<JwtAccessTokenPayloadDto> {
+  async validate(tokenPayload: any): Promise<JwtAccessTokenPayloadDto> {
     return Promise.resolve(<UserDto>tokenPayload);
   }
 }

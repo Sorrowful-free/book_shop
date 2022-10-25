@@ -96,7 +96,11 @@ export class DatabaseService {
         `book with id ${updateBookDto.book_id} not found`
       );
     }
-    return this.convertBook(mongoBook);
+    return {
+      book_id: updateBookDto.book_id,
+      book_name: updateBookDto.book_name ?? mongoBook.book_name,
+      author: updateBookDto.author ?? mongoBook.author
+    };
   }
 
   async deleteBook(bookId: any): Promise<void> {
