@@ -23,8 +23,11 @@ export class BookController {
   constructor(private readonly bookService: BookService) {}
 
   @Get()
-  async findAll(): Promise<BookDto[]> {
-    return this.bookService.findAll();
+  async findAll(
+    @Body("index") index = 0,
+    @Body("count") count = 10
+  ): Promise<BookDto[]> {
+    return this.bookService.findAll(index, count);
   }
 
   @Get("findById")

@@ -53,9 +53,9 @@ export class DatabaseService {
     return Promise.resolve(user);
   }
 
-  async findAllBooks(): Promise<BookDto[]> {
+  async findAllBooks(index = 0, count = 10): Promise<BookDto[]> {
     const books = await this.bookModel.find().exec();
-    return books.map((e) => this.convertBook(e));
+    return books.slice(index, index + count).map((e) => this.convertBook(e));
   }
 
   async findBookById(bookId: any): Promise<BookDto> {

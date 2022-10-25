@@ -8,8 +8,8 @@ import { UpdateBookDto } from "../dto/update-book-dto";
 export class BookService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  findAll(): Promise<BookDto[]> {
-    return this.databaseService.findAllBooks();
+  findAll(index = 0, count = 10): Promise<BookDto[]> {
+    return this.databaseService.findAllBooks(index, count);
   }
 
   findById(bookId: any): Promise<BookDto> {
