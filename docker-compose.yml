@@ -6,7 +6,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - 3000:3000
-      - 9229:9229
     container_name: book-shop-backend
     links:
       - mongo
