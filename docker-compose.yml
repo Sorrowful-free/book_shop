@@ -5,11 +5,14 @@ services:
       context: ./
       dockerfile: Dockerfile
     ports:
-      - 80:80
+      - 3000:3000
+      - 9229:9229
     container_name: book-shop-backend
     links:
       - mongo
       - redis
+    expose:
+      - 3000
   mongo:
     image: mongo
     ports:

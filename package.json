@@ -11,8 +11,8 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:debug": "NODE_ENV_FILE=\"./env/debug.env\" nest start --debug --watch",
+    "start:prod": "NODE_ENV_FILE=\"./env/prod.env\" node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -27,6 +27,8 @@
     "@nestjs/mapped-types": "^1.2.0",
     "@nestjs/passport": "^9.0.0",
     "@nestjs/platform-express": "^8.0.0",
+    "@nestjs/config": "^2.2.0",
+    "@liaoliaots/nestjs-redis": "^8.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.13.2",
     "passport": "^0.6.0",
@@ -34,7 +36,8 @@
     "passport-local": "^1.0.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^7.2.0"
+    "rxjs": "^7.2.0",
+    "ioredis": "^5.2.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",

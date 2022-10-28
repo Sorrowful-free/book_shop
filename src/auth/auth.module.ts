@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { ConfigsModule } from "../configs/configs.module";
 import { JwtModule } from "@nestjs/jwt";
 import { AuthController } from "./auth.controller";
 import { DatabaseModule } from "../database/database.module";
@@ -9,15 +8,18 @@ import { JwtPassportStrategy } from "./passport-strategy/jwt-passport.strategy";
 import { LocalAuthGuard } from "./auth-guards/local-auth-guard";
 import { PassportModule } from "@nestjs/passport";
 import { JwtAuthGuard } from "./auth-guards/jwt-auth-guard";
+import { JwtConfig } from "./configs/jwt-config";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
-  imports: [ConfigsModule, JwtModule, DatabaseModule, PassportModule],
+  imports: [JwtModule, DatabaseModule, PassportModule, ConfigModule],
   providers: [
     AuthService,
     LocalPassportStrategy,
     JwtPassportStrategy,
     LocalAuthGuard,
-    JwtAuthGuard
+    JwtAuthGuard,
+    JwtConfig
   ],
   exports: [
     AuthService,

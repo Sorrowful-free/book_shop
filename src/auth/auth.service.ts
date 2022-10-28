@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuthTokensDto } from "../dto/auth-tokens.dto";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
-import { JwtConfig } from "../configs/jwt-config";
+import { JwtConfig } from "./configs/jwt-config";
 import { DatabaseService } from "../database/database.service";
 import { JwtAccessTokenPayloadDto } from "../dto/jwt-access-token-payload-dto";
 import { UserDto } from "../dto/user-dto";
@@ -69,7 +69,7 @@ export class AuthService {
 
   private getJwtSignOptions(expiresIn: number): JwtSignOptions {
     return {
-      secret: this.jwtConfig.secret,
+      secret: this.jwtConfig.tokenSecret,
       expiresIn: expiresIn
     };
   }

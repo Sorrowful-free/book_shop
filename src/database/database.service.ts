@@ -76,30 +76,25 @@ export class DatabaseService {
     return this.convertBook(mongoBook);
   }
 
-  async createBook(createBookDto: CreateBookDto): Promise<BookDto> {
-    const createdBook = new this.bookModel(createBookDto);
+  async createBook(bookDto: CreateBookDto): Promise<BookDto> {
+    const createdBook = new this.bookModel(bookDto);
     return this.convertBook(await createdBook.save());
   }
 
-  async updateBook(updateBookDto: UpdateBookDto): Promise<BookDto> {
-    const mongoBook = await this.bookModel.findOneAndUpdate(
-      updateBookDto.book_id,
-      {
-        $set: {
-          book_name: updateBookDto.book_name,
-          author: updateBookDto.author
-        }
+  async updateBook(bookDto: UpdateBookDto): Promise<BookDto> {
+    const mongoBook = await this.bookModel.findOneAndUpdate(bookDto.book_id, {
+      $set: {
+        book_name: bookDto.book_name,
+        author: bookDto.author
       }
-    );
+    });
     if (!mongoBook) {
-      throw new NotFoundException(
-        `book with id ${updateBookDto.book_id} not found`
-      );
+      throw new NotFoundException(`book with id ${bookDto.book_id} not found`);
     }
     return {
-      book_id: updateBookDto.book_id,
-      book_name: updateBookDto.book_name ?? mongoBook.book_name,
-      author: updateBookDto.author ?? mongoBook.author
+      book_id: bookDto.book_id,
+      book_name: bookDto.book_name ?? mongoBook.book_name,
+      author: bookDto.author ?? mongoBook.author
     };
   }
 
