@@ -1,12 +1,12 @@
 import { IsNotEmpty, IsNumber, IsString } from "class-validator";
 
-export class BookDto {
+export class GoodsDto {
   @IsNotEmpty()
   readonly book_id: any;
   @IsString()
-  readonly book_name: string;
-  @IsString()
-  readonly author: string;
+  readonly description: string;
   @IsNumber()
   readonly price: number;
+  @IsNumber()
+  readonly amount: number;
 }

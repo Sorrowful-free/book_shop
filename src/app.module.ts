@@ -9,7 +9,8 @@ import { MongooseConfig } from "./database/configs/mongoose-config";
 import { OrderModule } from "./order/order.module";
 import { ConfigModule } from "@nestjs/config";
 import { RedisModule, RedisModuleOptions } from "@liaoliaots/nestjs-redis";
-import { RedisConfig } from "./database/configs/redis-config";
+import { RedisConfig } from "./temporary-storage/configs/redis-config";
+import { TemporaryStorageModule } from "./temporary-storage/temporary-storage.module";
 
 @Module({
   imports: [
@@ -32,19 +33,19 @@ import { RedisConfig } from "./database/configs/redis-config";
     }),
     RedisModule.forRootAsync(
       {
-        imports: [DatabaseModule],
+        imports: [TemporaryStorageModule],
         useFactory: async (redisConfig: RedisConfig) => {
           return <RedisModuleOptions>{
             config: {
-              host: redisConfig.host,
-              port: redisConfig.port
+              url: redisConfig.url
             }
           };
         },
         inject: [RedisConfig]
       },
       true
-    )
+    ),
+    TemporaryStorageModule
   ]
 })
 export class AppModule {}

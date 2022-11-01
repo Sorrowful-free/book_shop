@@ -5,7 +5,11 @@ import { CreateBookDto } from "../dto/create-book-dto";
 import { UpdateBookDto } from "../dto/update-book-dto";
 import { InjectModel } from "@nestjs/mongoose";
 import { Book, BookDocument } from "../mongo-schemas/book";
+import { Goods, Order, OrderDocument } from "../mongo-schemas/order";
 import { Model } from "mongoose";
+import { OrderDto } from "../dto/order-dto";
+import { GoodsDto } from "../dto/goods-dto";
+import { CreateOrderDto } from "../dto/create-order-dto";
 
 @Injectable()
 export class DatabaseService {
@@ -31,7 +35,8 @@ export class DatabaseService {
   ];
 
   constructor(
-    @InjectModel(Book.name) private readonly bookModel: Model<BookDocument>
+    @InjectModel(Book.name) private readonly bookModel: Model<BookDocument>,
+    @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>
   ) {}
 
   findUserByUserName(
@@ -94,7 +99,8 @@ export class DatabaseService {
     return {
       book_id: bookDto.book_id,
       book_name: bookDto.book_name ?? mongoBook.book_name,
-      author: bookDto.author ?? mongoBook.author
+      author: bookDto.author ?? mongoBook.author,
+      price: bookDto.price ?? mongoBook.price
     };
   }
 
@@ -108,11 +114,51 @@ export class DatabaseService {
     return Promise.resolve();
   }
 
+  async findOrder(orderId: any): Promise<OrderDto> {
+    const mongoOrder = await this.orderModel.findById(orderId).exec();
+    if (!mongoOrder) {
+      throw new NotFoundException(`order with id ${orderId} not found`);
+    }
+    return this.convertOrder(mongoOrder);
+  }
+
+  async createOrder(orderDto: CreateOrderDto): Promise<OrderDto> {
+    const createdOrder = new this.orderModel(orderDto);
+    return this.convertOrder(await createdOrder.save());
+  }
+
+  async deleteOrder(orderId: any): Promise<void> {
+    const result = await this.orderModel.findByIdAndDelete(orderId);
+
+    if (!result) {
+      throw new NotFoundException(`order with id ${orderId} not found`);
+    }
+
+    return Promise.resolve();
+  }
+
   private convertBook(bookDocument: BookDocument): BookDto {
     return {
       book_id: bookDocument._id,
       book_name: bookDocument.book_name,
-      author: bookDocument.author
+      author: bookDocument.author,
+      price: bookDocument.price
+    };
+  }
+
+  private convertOrder(orderDocument: OrderDocument): OrderDto {
+    return {
+      order_id: orderDocument.order_id ?? orderDocument._id,
+      goods: orderDocument.goods.map((e) => this.convertGoods(e))
+    };
+  }
+
+  private convertGoods(goods: Goods): GoodsDto {
+    return {
+      book_id: goods.book_id,
+      description: goods.description,
+      price: goods.price,
+      amount: goods.amount
     };
   }
 }
