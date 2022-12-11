@@ -59,8 +59,22 @@ export class DatabaseService {
   }
 
   async findAllBooks(index = 0, count = 10): Promise<BookDto[]> {
-    const books = await this.bookModel.find().exec();
-    return books.slice(index, index + count).map((e) => this.convertBook(e));
+    const mongoBooks = await this.bookModel.find().exec();
+    return mongoBooks
+      .slice(index, index + count)
+      .map((e) => this.convertBook(e));
+  }
+
+  async findBooksByIds(booksIds: any[]): Promise<BookDto[]> {
+    const mongoBooks = await this.bookModel
+      .find({ _id: { $in: booksIds } })
+      .exec();
+    if (!mongoBooks && mongoBooks.length > 0) {
+      throw new NotFoundException(
+        `books with ids ${booksIds.join(", ")} not found`
+      );
+    }
+    return mongoBooks.map((e) => this.convertBook(e));
   }
 
   async findBookById(bookId: any): Promise<BookDto> {

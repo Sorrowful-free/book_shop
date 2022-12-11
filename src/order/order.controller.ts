@@ -18,7 +18,8 @@ import { OrderService } from "./order.service";
 
 @Controller("order")
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly orderService: OrderService) { }
+
   @UserRoles(UserRole.Customer, UserRole.Employer, UserRole.Admin)
   @UseGuards(JwtAuthGuard, UserRolesAuthGuard)
   @Get()
@@ -35,7 +36,7 @@ export class OrderController {
 
   @UserRoles(UserRole.Customer, UserRole.Employer, UserRole.Admin)
   @UseGuards(JwtAuthGuard, UserRolesAuthGuard)
-  @Post(":id")
+  @Post()
   store(
     @User() userDto: UserDto,
     @Body() createOrderDto: CreateOrderDto
@@ -45,7 +46,7 @@ export class OrderController {
 
   @UserRoles(UserRole.Customer, UserRole.Employer, UserRole.Admin)
   @UseGuards(JwtAuthGuard, UserRolesAuthGuard)
-  @Post("checkout/:id")
+  @Post("checkout")
   checkout(
     @User() userDto: UserDto,
     @Body() createOrderDto: CreateOrderDto
@@ -55,8 +56,15 @@ export class OrderController {
 
   @UserRoles(UserRole.Employer, UserRole.Admin)
   @UseGuards(JwtAuthGuard, UserRolesAuthGuard)
-  @Delete("delete")
-  delete(@Body("order_id") order_id: any): Promise<any> {
+  @Delete("delete/:id")
+  deleteCurrent(@User() userDto: UserDto): Promise<any> {
+    return this.orderService.delete(userDto.user_id);
+  }
+
+  @UserRoles(UserRole.Employer, UserRole.Admin)
+  @UseGuards(JwtAuthGuard, UserRolesAuthGuard)
+  @Delete("delete/:id")
+  delete(@Query("id") order_id: any): Promise<any> {
     return this.orderService.delete(order_id);
   }
 }
