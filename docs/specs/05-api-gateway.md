@@ -1,6 +1,6 @@
 # 05. api-gateway
 
-> Статус: draft
+> Статус: approved
 > HTTP :3000 | Хранилище: — | gRPC-клиент ко всем сервисам
 
 ## 1. Ответственность и границы
@@ -25,49 +25,53 @@ Global prefix `api/v1` (`app.setGlobalPrefix('api/v1')`). В таблицах у
 
 | Method | Route                | gRPC               | Кто             |
 | ------ | -------------------- | ------------------ | --------------- |
-| POST   | /api/auth/register   | auth.Register      | public          |
-| POST   | /api/auth/login      | auth.Login         | public          |
-| POST   | /api/auth/refresh    | auth.Refresh       | refresh cookie/body |
-| POST   | /api/auth/logout     | auth.RevokeToken   | refresh cookie/body |
-| GET    | /api/auth/me         | auth.GetUser       | authenticated   |
+| POST   | /auth/register       | auth.Register      | public          |
+| POST   | /auth/login          | auth.Login         | public          |
+| POST   | /auth/refresh        | auth.Refresh       | refresh cookie/body |
+| POST   | /auth/logout         | auth.RevokeToken   | refresh cookie/body |
+| GET    | /auth/me             | auth.GetUser       | authenticated   |
 
 Login/Register: вызывают gRPC, ставят `access_token`+`refresh_token`
 httpOnly-cookies, возвращают токены и в JSON (режим header+body для
 API-клиентов). Если у гостя была `cart_id`-cookie → `cart.MergeCart`,
 cookie снимается.
-Logout: `auth.RevokeToken` (refresh из cookie/body — сам токен является
-credential, access не требуется) + в denylist кладётся и текущий access,
-если он валиден → clear cookies.
+Logout: `auth.RevokeToken(refresh_token, access_token?)` — refresh из
+cookie/body (сам является credential, access не требуется); текущий access
+(cookie/Bearer, если есть) передаётся полем `access_token` → его jti в
+denylist даже при просроченном exp. Ошибка RevokeToken (напр. протухший
+refresh) не блокирует logout: куки снимаются всегда, ответ 204.
+`/auth/me`: `user_id` для `auth.GetUser` берётся из `sub` локально
+верифицированного JWT.
 
 ### Books (catalog)
 
 | Method | Route                    | gRPC                              | Роли            |
 | ------ | ------------------------ | --------------------------------- | --------------- |
-| GET    | /api/books               | SearchBooks или ListBooks         | public          |
-| GET    | /api/books/:id           | GetBook                           | public          |
-| POST   | /api/books               | CreateBook                        | Employer, Admin |
-| PATCH  | /api/books/:id           | UpdateBook                        | Employer, Admin |
-| DELETE | /api/books/:id           | DeleteBook                        | Admin           |
-| POST   | /api/books/:id/restore   | RestoreBook                       | Admin           |
+| GET    | /books                   | SearchBooks или ListBooks         | public          |
+| GET    | /books/:id               | GetBook                           | public          |
+| POST   | /books                   | CreateBook                        | Employer, Admin |
+| PATCH  | /books/:id               | UpdateBook                        | Employer, Admin |
+| DELETE | /books/:id               | DeleteBook                        | Admin           |
+| POST   | /books/:id/restore       | RestoreBook                       | Admin           |
 
-GET /api/books: `offset`, `limit`, опциональные `query`, `genre` — при
+GET /books: `offset`, `limit`, опциональные `query`, `genre` — при
 query/genre идёт SearchBooks, иначе ListBooks.
 
 ### Cart (гость + пользователь)
 
 | Method | Route                        | gRPC            |
 | ------ | ---------------------------- | --------------- |
-| GET    | /api/cart                    | cart.GetCart + обогащение catalog.GetBooksByIds |
-| POST   | /api/cart/items              | AddItem {book_id, amount} |
-| PATCH  | /api/cart/items/:book_id     | UpdateItem {amount} |
-| DELETE | /api/cart/items/:book_id     | RemoveItem |
-| DELETE | /api/cart                    | ClearCart |
+| GET    | /cart                        | cart.GetCart + обогащение catalog.GetBooksByIds |
+| POST   | /cart/items                  | AddItem {book_id, amount} |
+| PATCH  | /cart/items/:book_id         | UpdateItem {amount} |
+| DELETE | /cart/items/:book_id         | RemoveItem |
+| DELETE | /cart                        | ClearCart |
 
 Owner-резолюция: гость → `cart_id` cookie передаётся в `cart_id` поля
 запросов; авторизованный → JWT в metadata, `cart_id` cookie ИГНОРИРУЕТСЯ
 (кроме явного MergeCart после login/register). Если у гостя cookie нет —
 gateway вызывает `CreateCart` и ставит `cart_id` httpOnly-cookie.
-GET /api/cart возвращает позиции, обогащённые name/author/price/available
+GET /cart возвращает позиции, обогащённые name/author/price/available
 из catalog — BFF-агрегация. Деградация: если `GetBooksByIds` вернул
 NOT_FOUND (часть книг удалена/несуществует) — недостающие позиции
 возвращаются с `available: false` и без метаданных, весь запрос не падает.
@@ -76,11 +80,11 @@ NOT_FOUND (часть книг удалена/несуществует) — не
 
 | Method | Route                     | gRPC           |
 | ------ | ------------------------- | -------------- |
-| POST   | /api/orders/checkout      | order.Checkout |
-| GET    | /api/orders               | ListMyOrders   |
-| GET    | /api/orders/:id           | GetOrder       |
-| POST   | /api/orders/:id/pay       | PayOrder       |
-| POST   | /api/orders/:id/cancel    | CancelOrder    |
+| POST   | /orders/checkout          | order.Checkout |
+| GET    | /orders                   | ListMyOrders   |
+| GET    | /orders/:id               | GetOrder       |
+| POST   | /orders/:id/pay           | PayOrder       |
+| POST   | /orders/:id/cancel        | CancelOrder    |
 
 Checkout принимает опциональный заголовок `Idempotency-Key` (uuid) —
 передаётся в `order.Checkout.idempotency_key`; при отсутствии gateway
@@ -149,8 +153,11 @@ gRPC-клиенты: auth :50051, catalog :50052, cart :50053, order :50054.
 - register/login → cookies выставлены + токены в JSON; повторный запрос с
   cookie авторизован; Bearer-заголовок тоже работает
 - refresh по refresh-cookie → новая пара, куки перезаписаны; протухший/отозванный → 401
-- logout → RevokeToken вызван, куки сняты; и refresh, и access попадают в
-  denylist → старый access отклоняется верификаторами всех сервисов
+- logout → RevokeToken вызван, куки сняты (даже при ошибке revoke, ответ
+  204); refresh jti → revoked в БД auth, access jti → Redis-denylist →
+  старый access отклоняется верификаторами всех сервисов
+- denylist-эффект проверяется с реальным/тестовым Redis или инжектированным
+  `TokenDenylist`-стабом
 - публичные роуты без токена → 200; защищённые без токена → 401; недостаточная роль → 403
 - гость: первая корзинная операция → CreateCart + cookie; далее корзина по
   cart_id; после login — MergeCart вызван, корзина слита

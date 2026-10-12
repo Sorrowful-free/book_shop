@@ -1,6 +1,6 @@
 # 02. catalog-service
 
-> Статус: draft
+> Статус: approved
 > Proto: `packages/contracts/proto/catalog.proto`
 > Порт: `:50052` | Хранилище: PostgreSQL `catalog_db` (user `catalog_user`)
 
@@ -42,6 +42,9 @@ deleted-книги `available=0`) — gateway использует `available` �
   `query` как substring-match по book_name/author (case-insensitive),
   `genre` — точный фильтр; оба опциональны. Удалённые книги присутствуют в
   выдаче с `is_deleted=true` (остаются на витрине).
+- `GetBooksByIds` — удалённые книги тоже возвращаются (с `is_deleted=true`,
+  `available=0`); NOT_FOUND — только за отсутствующие id. Покупку отсекает
+  ReserveStock, а не выборка.
 - `ReserveStock` — все позиции атомарно в одной транзакции: для каждой книги
   `stock − активные_резервы >= amount` и `is_deleted=false`, иначе
   FAILED_PRECONDITION (в details — список недоступных book_id). Резерв —
@@ -52,7 +55,9 @@ deleted-книги `available=0`) — gateway использует `available` �
   успех без повторного списания (защита от ретрая order'а). Истёкший →
   NOT_FOUND; RELEASED/несуществующий → NOT_FOUND.
 - `ReleaseStock` — отмена резерва → status RELEASED (компенсация при отказе
-  checkout). Истёкший/несуществующий → NOT_FOUND.
+  checkout). Истёкший/несуществующий → NOT_FOUND; COMMITTED или уже
+  RELEASED → FAILED_PRECONDITION (компенсировать нечего — order трактует
+  это как «компенсация уже выполнена»).
 - `DeleteBook` — **soft delete**: ставит `deleted_at`; книга видна в каталоге,
   но недоступна для резервирования. `RestoreBook` снимает флаг.
 

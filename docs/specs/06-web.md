@@ -1,6 +1,6 @@
 # 06. web (Nuxt SSR)
 
-> Статус: draft
+> Статус: approved
 > Порт: `:3001` | Хранилище: — | Клиент api-gateway через Nuxt server routes
 
 ## 1. Ответственность и границы
@@ -29,6 +29,8 @@ SSR-фронтенд магазина на Nuxt (Vue 3). Витрина ката
 Route middleware: `/checkout`, `/orders*` — редирект на /login без сессии;
 `/admin/*` — редирект не-Employer/Admin на /. Текущий пользователь — через
 `GET /api/auth/me` (SSR), кэшируется в useState на запрос.
+В `/admin/books` кнопки delete/restore отображаются только для Admin
+(роль EMPLOYER их скрывает — иначе dead-403, матрица см. спеку 05).
 
 ## 3. BFF (server routes)
 

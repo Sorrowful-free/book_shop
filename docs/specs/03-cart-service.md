@@ -1,6 +1,6 @@
 # 03. cart-service
 
-> Статус: draft
+> Статус: approved
 > Proto: `packages/contracts/proto/cart.proto`
 > Порт: `:50053` | Хранилище: Redis
 
@@ -81,15 +81,17 @@ Consumer group `cart-service`. Продюсеров нет. Ошибка consume
 ## 5. Зависимости
 
 Исходящих gRPC-зависимостей нет (обогащение позиций — ответственность
-api-gateway). Инфра: Redis, Kafka (только consume).
+api-gateway). Инфра: Redis (корзины + чтение denylist `auth:revoked:*` для
+JwtVerifier), Kafka (только consume).
 
 Входящие: api-gateway (все RPC), order-service (GetCart при checkout),
 Kafka consumer (`order.order.created` → ClearCart).
 
 ## 6. Аутентификация и авторизация
 
-Сервис верифицирует JWT из metadata `authorization` (EdDSA public key,
-`JwtVerifier` из `@book-shop/common`).
+Сервис верифицирует JWT из metadata `authorization` (EdDSA public key +
+Redis-denylist, `JwtVerifier` + `RedisTokenDenylist` из `@book-shop/common`
+— тот же `REDIS_URL`, что и у корзин).
 
 - Операции над пользовательской корзиной (без `cart_id` в запросе) — валидный
   JWT обязателен; user_id берётся из `sub` токена, не из metadata-полей.
@@ -134,11 +136,12 @@ Kafka consumer (`order.order.created` → ClearCart).
 
 - Unit (`bun test`, `*.spec.ts`, Redis за repository-интерфейсом, мокается):
   суммирование AddItem, UpdateItem=0 → remove, merge-суммирование,
-  выбор owner (cart_id vs metadata), вызов EXPIRE на каждой операции,
-  маппинг ошибок → gRPC codes
+  выбор owner (cart_id vs JWT `sub`), вызов EXPIRE на каждой успешной
+  операции, маппинг ошибок → gRPC codes
 - e2e (`test/cart.e2e.spec.ts`, реальные redis+kafka):
   guest lifecycle create→add→update→remove→clear; пользовательская корзина
-  по metadata; merge при логине; TTL-истечение (`CART_TTL_SEC=1` + ожидание);
+  по JWT (тестовая EdDSA-пара, см. AGENTS.md); merge при логине;
+  TTL-истечение (`CART_TTL_SEC=1` + ожидание);
   продление TTL при обращении; публикация `order.order.created` тестовым
   producer'ом → корзина очищена
 

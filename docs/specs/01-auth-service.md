@@ -1,6 +1,6 @@
 # 01. auth-service
 
-> Статус: draft
+> Статус: approved
 > Proto: `packages/contracts/proto/auth.proto`
 > Порт: `:50051` | Хранилище: PostgreSQL `auth_db` (user `auth_user`)
 
@@ -35,9 +35,11 @@ refresh_token_expires_in (секунды).
 Register создаёт пользователя с ролью CUSTOMER и сразу возвращает пару токенов
 (авто-логин).
 RevokeToken (logout): jti переданного refresh-token помечается revoked в БД;
-если передан `access_token` (валидная подпись, даже если просрочен) — его jti
-кладётся в Redis-denylist `auth:revoked:{jti}` с TTL = оставшееся время жизни
-токена. Все JwtVerifier'ы (во всех сервисах) проверяют denylist при
+если передан `access_token` — он проверяется **только по подписи** (exp не
+проверяется — отозвать просроченный access тоже валидная операция), его jti
+кладётся в Redis-denylist `auth:revoked:{jti}` с TTL = `exp − now`;
+если оставшееся время ≤ 0 — denylist-запись пропускается (отзывать нечего,
+успех). Все JwtVerifier'ы (во всех сервисах) проверяют denylist при
 верификации access-token'а → отозванный access отклоняется везде.
 Идемпотентен — уже отозванный токен → успех. Сам предъявленный токен
 является credential'ом, проверки владельца нет.
@@ -93,10 +95,10 @@ Seed: только `admin` (роль ADMIN). Креды берутся из env
 | produce     | `auth.user.events` | `auth.user.registered`  | `{ userId, userName, role }`     |
 
 **Transactional outbox**: `Register` пишет пользователя + запись в `outbox`
-в одной транзакции. In-process relay (`OutboxRelay` из `@book-shop/common`,
-poller с `FOR UPDATE SKIP LOCKED`) публикует в Kafka и проставляет
-`published_at`. Недоступный брокер не ломает регистрацию — событие доедет
-позже (at-least-once).
+в одной транзакции. In-process `OutboxRelay` из `@book-shop/common`
+публикует в Kafka и проставляет `published_at`; store-реализация сервиса
+выбирает батчи через `SELECT … FOR UPDATE SKIP LOCKED`. Недоступный
+брокер не ломает регистрацию — событие доедет позже (at-least-once).
 
 ## 5. Зависимости
 
@@ -184,10 +186,12 @@ Defense in depth: сервис сам верифицирует JWT из metadata
   маппинг ошибок в gRPC codes
 - e2e (`test/auth.e2e.spec.ts`, реальные postgres+kafka+redis из `infra/`):
   полный gRPC-сценарий register → login → validate → refresh → revoke →
-  отозванный refresh отклонён; seed-админ логинится; фактическая публикация
-  `auth.user.registered` проверяется тестовым Kafka-consumer'ом; outbox:
-  сервис поднят при `KAFKA_BROKERS=localhost:1` → register успешен → брокер
-  «поднялся» → relay опубликовал событие (или отдельный прогон relay'я)
+  отозванный refresh и access (denylist) отклонены; seed-админ логинится;
+  фактическая публикация `auth.user.registered` проверяется тестовым
+  Kafka-consumer'ом; outbox: сервис поднят при `KAFKA_BROKERS=localhost:1`
+  (producer подключается лениво/с ретраями — сервис обязан стартовать без
+  брокера) → register успешен → брокер «поднялся» → relay опубликовал
+  событие (или отдельный прогон relay'я)
 
 ## 11. NFR
 

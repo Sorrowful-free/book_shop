@@ -1,6 +1,6 @@
 # 04. order-service
 
-> Статус: draft
+> Статус: approved
 > Proto: `packages/contracts/proto/order.proto`
 > Порт: `:50054` | Хранилище: PostgreSQL `order_db` (user `order_user`)
 
@@ -57,8 +57,11 @@ CommitStock идемпотентен в catalog: ретрай PayOrder посл�
 outbox `order.cancelled`, caller получает FAILED_PRECONDITION.
 
 **CancelOrder**: PENDING → `catalog.ReleaseStock(reservation_id)` → CANCELLED +
-outbox `order.cancelled`. ReleaseStock → NOT_FOUND (резерв уже истёк) —
-считается успешной компенсацией (цель достигнута), заказ всё равно → CANCELLED.
+outbox `order.cancelled`. ReleaseStock → NOT_FOUND (резерв истёк) или
+FAILED_PRECONDITION (уже COMMITTED/RELEASED) — считается успешной
+компенсацией, заказ всё равно → CANCELLED. Краевой случай crash-gap:
+заказ PENDING с COMMITTED-резервом (persist упал после commit) — отменяется,
+но stock не восстанавливается (документированный компромисс учебной саги).
 PAID/CANCELLED → FAILED_PRECONDITION.
 
 ## 3. Модель данных и хранилище
@@ -110,7 +113,7 @@ client-интерфейсами (всё мокается в unit).
 | Направление | Топик                 | eventType               | Payload                                    |
 | ----------- | --------------------- | ----------------------- | ------------------------------------------ |
 | produce     | `order.order.events`  | `order.order.created`   | `{ orderId, userId, goods[], totalPrice }` |
-| produce     | `order.order.events`  | `order.order.paid`      | `{ orderId, userId, totalPrice }` *(новое — добавить в contracts)* |
+| produce     | `order.order.events`  | `order.order.paid`      | `{ orderId, userId, totalPrice }`              |
 | produce     | `order.order.events`  | `order.order.cancelled` | `{ orderId, userId }`                      |
 
 **Transactional outbox** (at-least-once, `OutboxRelay` из `@book-shop/common`):

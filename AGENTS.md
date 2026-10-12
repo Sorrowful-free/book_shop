@@ -9,7 +9,7 @@ Book shop — educational microservices showcase. Monorepo on **Bun workspaces**
 - `apps/` — deployable apps: `web` (Nuxt SSR), `api-gateway` (NestJS HTTP :3000),
   `auth-service`/`catalog-service`/`cart-service`/`order-service` (NestJS gRPC :50051–50054)
 - `packages/contracts` — protobuf files + generated stubs (ts-proto), Kafka topics + event payloads, shared types (UserRole)
-- `packages/common` — runtime helpers: `JwtVerifier` (EdDSA), `OutboxRelay`, gRPC metadata user-context, roles
+- `packages/common` — runtime helpers: `JwtVerifier` (EdDSA + denylist), `OutboxRelay`, gRPC metadata helpers
 - `infra/` — docker-compose: PostgreSQL (per-service DBs: `auth_db`, `catalog_db`, `order_db`), Redis (cart), Kafka (KRaft)
 - `docs/specs/` — service specs, template: `docs/specs/_template.md`
 
