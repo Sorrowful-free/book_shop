@@ -1,6 +1,16 @@
 # compiled output
-/dist
-/node_modules
+dist
+node_modules
+*.tsbuildinfo
+
+# Nuxt
+.nuxt
+.output
+
+# env / secrets
+.env
+.env.*
+!.env.example
 
 # Logs
 logs
@@ -15,11 +25,11 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
-/coverage
-/.nyc_output
+coverage
+.nyc_output
 
 # IDEs and editors
-/.idea
+.idea
 .project
 .classpath
 .c9/

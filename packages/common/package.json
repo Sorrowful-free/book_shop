@@ -1,0 +1,21 @@
+{
+  "name": "@book-shop/common",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Shared runtime helpers: user context, gRPC metadata, errors",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@book-shop/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.3",
+    "typescript": "^5.9.3"
+  }
+}
