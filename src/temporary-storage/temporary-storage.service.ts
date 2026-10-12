@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { InjectRedis } from "@liaoliaots/nestjs-redis";
+import { InjectRedis } from "@nestjs-modules/ioredis";
 import Redis from "ioredis";
 import { OrderDto } from "../dto/order-dto";
 import { RedisConfig } from "./configs/redis-config";

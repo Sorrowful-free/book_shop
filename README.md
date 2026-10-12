@@ -1,73 +1,144 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo_text.svg" width="320" alt="Nest Logo" /></a>
-</p>
+# Book Shop Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API for a book shop built with [NestJS](https://nestjs.com) running on the [Bun](https://bun.sh) runtime.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Features:
 
-## Description
+- Books CRUD with pagination
+- Orders with Redis-backed temporary storage (cart) and checkout to MongoDB
+- JWT authentication (access + refresh tokens) with role-based access control
+- MongoDB persistence via Mongoose
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tech stack
+
+- **NestJS 11** + Express 5
+- **Bun** — runtime, package manager and test runner
+- **MongoDB** via `@nestjs/mongoose` (mongoose 8)
+- **Redis** via `@nestjs-modules/ioredis`
+- **Passport** — local + JWT strategies
+- `class-validator` DTO validation
+
+## Prerequisites
+
+- [Bun](https://bun.sh) (`curl -fsSL https://bun.sh/install | bash`)
+- Docker + Docker Compose (for MongoDB/Redis, or the whole stack)
 
 ## Installation
 
 ```bash
-$ npm install
+bun install
 ```
+
+## Configuration
+
+Environment variables are loaded from the file pointed to by `NODE_ENV_FILE`:
+
+- `env/debug.env` — local development (`localhost` endpoints)
+- `env/prod.env` — containers (docker-compose service names)
+
+| Variable | Description |
+| --- | --- |
+| `MONGOOSE_URL` | MongoDB connection URL |
+| `REDIS_URL` | Redis connection URL |
+| `REDIS_EXPIRE_IN` | Order TTL in Redis (seconds) |
+| `JWT_TOKEN_SECRET` | Secret for signing JWTs |
+| `JWT_ACCESS_TOKEN_EXPIRES_IN` | Access token TTL (seconds) |
+| `JWT_REFRESH_TOKEN_EXPIRES_IN` | Refresh token TTL (seconds) |
 
 ## Running the app
 
+Start MongoDB and Redis first:
+
 ```bash
-# development
-$ npm run start
+docker compose up -d mongo redis
+```
+
+Then:
+
+```bash
+# development (build + run compiled output via bun)
+bun run start
 
 # watch mode
-$ npm run start:dev
+bun run start:dev
 
-# production mode
-$ npm run start:prod
+# debug mode (bun inspector, runs TypeScript directly)
+bun run start:debug
+
+# production (requires `bun run build` first)
+bun run start:prod
 ```
+
+The API listens on `http://localhost:3000`.
+
+### All-in-one with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Builds the backend on the `oven/bun` image and starts it together with MongoDB and Redis.
 
 ## Test
 
 ```bash
-# unit tests
-$ npm run test
+# unit / e2e tests (bun test)
+bun run test
 
-# e2e tests
-$ npm run test:e2e
+# watch mode
+bun run test:watch
 
 # test coverage
-$ npm run test:cov
+bun run test:cov
 ```
 
-## Support
+Note: the e2e spec boots the whole `AppModule`, so MongoDB and Redis must be running (`docker compose up -d mongo redis`).
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## API overview
 
-## Stay in touch
+| Method | Route | Description | Roles |
+| --- | --- | --- | --- |
+| POST | `/auth/login` | Login, returns access + refresh tokens | public |
+| POST | `/auth/refresh` | Refresh access token | any authenticated |
+| GET | `/user` | Current user name | public |
+| GET | `/book` | List books (`index`, `count` in body) | public |
+| GET | `/book/findById` | Find book by `book_id` | public |
+| GET | `/book/findByName` | Find book by `book_name` | public |
+| POST | `/book/create` | Create a book | Employer, Admin |
+| PATCH | `/book/update` | Update a book | Employer, Admin |
+| DELETE | `/book/delete` | Delete a book | Admin |
+| GET | `/order` | Current user's stored order | Customer, Employer, Admin |
+| GET | `/order/:id` | Find an order | Customer, Employer, Admin |
+| POST | `/order` | Store order in Redis (cart) | Customer, Employer, Admin |
+| POST | `/order/checkout` | Persist order to MongoDB | Customer, Employer, Admin |
+| DELETE | `/order/delete/:id` | Delete an order | Employer, Admin |
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Demo users
+
+Seeded in `DatabaseService` (in-memory, for demo purposes):
+
+| user_name | password | role |
+| --- | --- | --- |
+| `admin` | `admin` | Admin |
+| `vitek` | `super_puper_pass` | Employer |
+| `vasya` | `super_puper_pass` | Customer |
+
+Login example:
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"login": "admin", "password": "admin"}'
+```
+
+## Scripts
+
+```bash
+bun run build    # nest build -> dist/
+bun run lint     # eslint --fix
+bun run format   # prettier --write
+```
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
+UNLICENSED

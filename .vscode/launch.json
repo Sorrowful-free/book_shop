@@ -5,7 +5,7 @@
             "name": "Launch Debug app",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "bun",
             "runtimeArgs": [
                 "run",
                 "start:debug"
@@ -21,7 +21,7 @@
             "name": "Launch Prod app",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "bun",
             "runtimeArgs": [
                 "run",
                 "start:prod"

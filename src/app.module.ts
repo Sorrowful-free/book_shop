@@ -8,7 +8,7 @@ import { MongooseModule, MongooseModuleOptions } from "@nestjs/mongoose";
 import { MongooseConfig } from "./database/configs/mongoose-config";
 import { OrderModule } from "./order/order.module";
 import { ConfigModule } from "@nestjs/config";
-import { RedisModule, RedisModuleOptions } from "@liaoliaots/nestjs-redis";
+import { RedisModule } from "@nestjs-modules/ioredis";
 import { RedisConfig } from "./temporary-storage/configs/redis-config";
 import { TemporaryStorageModule } from "./temporary-storage/temporary-storage.module";
 
@@ -31,20 +31,14 @@ import { TemporaryStorageModule } from "./temporary-storage/temporary-storage.mo
         },
       inject: [MongooseConfig]
     }),
-    RedisModule.forRootAsync(
-      {
-        imports: [TemporaryStorageModule],
-        useFactory: async (redisConfig: RedisConfig) => {
-          return <RedisModuleOptions>{
-            config: {
-              url: redisConfig.url
-            }
-          };
-        },
-        inject: [RedisConfig]
-      },
-      true
-    ),
+    RedisModule.forRootAsync({
+      imports: [TemporaryStorageModule],
+      useFactory: async (redisConfig: RedisConfig) => ({
+        type: "single",
+        url: redisConfig.url
+      }),
+      inject: [RedisConfig]
+    }),
     TemporaryStorageModule
   ]
 })
