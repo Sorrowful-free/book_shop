@@ -8,20 +8,45 @@ Book shop — educational microservices showcase. Monorepo on **Bun workspaces**
 
 - `apps/` — deployable apps: `web` (Nuxt SSR), `api-gateway` (NestJS HTTP :3000),
   `auth-service`/`catalog-service`/`cart-service`/`order-service` (NestJS gRPC :50051–50054)
-- `packages/contracts` — protobuf files, Kafka topics + event payloads, shared types (UserRole)
-- `packages/common` — runtime helpers (gRPC metadata user-context, roles)
+- `packages/contracts` — protobuf files + generated stubs (ts-proto), Kafka topics + event payloads, shared types (UserRole)
+- `packages/common` — runtime helpers: `JwtVerifier` (EdDSA), `OutboxRelay`, gRPC metadata user-context, roles
 - `infra/` — docker-compose: PostgreSQL (per-service DBs: `auth_db`, `catalog_db`, `order_db`), Redis (cart), Kafka (KRaft)
 - `docs/specs/` — service specs, template: `docs/specs/_template.md`
 
 ## Communication
 
-- Sync calls between services: **gRPC** (`@nestjs/microservices` + `@grpc/grpc-js`,
-  proto loaded at runtime from `packages/contracts/proto`)
+- Sync calls between services: **gRPC** (`@nestjs/microservices` + `@grpc/grpc-js`).
+  Proto contracts live in `packages/contracts/proto`; TypeScript stubs are
+  **codegenerated with buf + ts-proto** (`bun run proto:gen`) — no runtime
+  proto loading
 - Async domain events: **Kafka** (topics `auth.user.events`, `catalog.book.events`,
-  `order.order.events` — see `contracts/src/topics.ts`)
-- Auth: JWT verified **only at api-gateway**; user context propagates to services
-  via gRPC metadata keys (`x-user-id`, `x-user-name`, `x-user-role` — see
-  `common/src/user-context.ts`)
+  `order.order.events` — see `contracts/src/topics.ts`). Delivery is via
+  **transactional outbox**: mutation + `outbox` row in one DB transaction,
+  `OutboxRelay` (from `@book-shop/common`) publishes at-least-once.
+  Consumers MUST be idempotent
+- Auth (defense in depth): every service verifies JWT itself — raw token in
+  `authorization` gRPC metadata, EdDSA public key via `JwtVerifier`
+  (`@book-shop/common`). Revoked token jtis live in a Redis denylist
+  (`auth:revoked:{jti}`, TTL = token exp) checked by the verifier.
+  Service-to-service calls propagate `authorization`; `x-user-*` metadata
+  fields are NOT used/trusted. Ownership checks are done in the owning
+  service; role matrix additionally enforced at api-gateway
+
+## Runtime portability (hard rule)
+
+Application code (`src/` of every app and all of `packages/`) MUST run under
+**both Bun and Node.js LTS**. Bun is the dev toolchain only (install, test
+runner, scripts) — never a runtime dependency.
+
+- No `Bun.*` globals (`Bun.password`, `Bun.sql`, `Bun.file`, `Bun.serve`, …)
+- No `bun:*` module imports in application code
+- No Bun-specific dependency APIs — prefer portable libraries
+  (e.g. `@node-rs/argon2` instead of `Bun.password`, `postgres.js`-compatible
+  drivers instead of `Bun.sql`)
+- Allowed exception: test files (`*.spec.ts`, `test/`) may import `bun:test`
+
+Enforced by eslint (`no-restricted-globals`, `no-restricted-imports`) — CI fails
+on violations.
 
 ## Spec-driven workflow (mandatory)
 
@@ -31,7 +56,9 @@ Every service/feature is implemented by a separate plan/subagent, in this order:
 2. **Contracts first** — proto/event changes land in `packages/contracts` before code
 3. **Tests first** — unit + e2e tests from the spec, failing (`bun test`)
 4. **Implementation last** — until tests are green
-5. **DoD** — tests green, spec + README updated, service runs against `infra/`
+5. **Commit per plan** — each plan/subagent lands as its own commit(s);
+   no mixing plans in one working-tree dump
+6. **DoD** — tests green, spec + README updated, service runs against `infra/`
 
 ## Commands
 
@@ -49,4 +76,9 @@ bun run proto:lint         # buf lint packages/contracts (needs buf CLI)
 - Tests: `bun:test`, `*.spec.ts` colocated; e2e in `<app>/test/`
 - Env: per-app `.env` (gitignored), commit `.env.example`
 - Dev secrets in `infra/` are local-only, never reused in production
-- No MongoDB anywhere — PostgreSQL (Drizzle ORM recommended) + Redis only
+- No MongoDB anywhere — PostgreSQL (**Prisma** ORM) + Redis only
+- e2e needing JWTs: tests generate an Ed25519 key pair with `jose` (or reuse
+  auth-service `gen-keys`), inject `JWT_PUBLIC_KEY` into the service under
+  test and sign test tokens directly — no auth-service dependency in tests
+- Role seeding: only `admin` is seeded; tests needing other roles insert
+  users directly into the DB (no role-management RPC by design)

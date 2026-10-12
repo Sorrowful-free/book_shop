@@ -1,15 +1,28 @@
 import { describe, expect, it } from "bun:test";
-import { UserRole } from "@book-shop/contracts";
-import { userContextFromMetadata, userContextToMetadata } from "./user-context";
+import {
+  authorizationFromMetadata,
+  authorizationToMetadata,
+  traceIdFromMetadata
+} from "./user-context";
 
-describe("user context metadata", () => {
-  it("round-trips through metadata", () => {
-    const ctx = { userId: "42", userName: "vasya", role: UserRole.Customer };
-    const metadata = userContextToMetadata(ctx);
-    expect(userContextFromMetadata(metadata)).toEqual(ctx);
+describe("gRPC metadata helpers", () => {
+  it("round-trips authorization token", () => {
+    const metadata = authorizationToMetadata("jwt-token");
+    expect(authorizationFromMetadata(metadata)).toBe("jwt-token");
   });
 
-  it("returns undefined when required keys are missing", () => {
-    expect(userContextFromMetadata({})).toBeUndefined();
+  it("strips Bearer prefix", () => {
+    expect(
+      authorizationFromMetadata({ authorization: "Bearer jwt-token" })
+    ).toBe("jwt-token");
+  });
+
+  it("returns undefined when authorization is missing", () => {
+    expect(authorizationFromMetadata({})).toBeUndefined();
+  });
+
+  it("reads trace id", () => {
+    expect(traceIdFromMetadata({ "x-trace-id": "t-1" })).toBe("t-1");
+    expect(traceIdFromMetadata({})).toBeUndefined();
   });
 });

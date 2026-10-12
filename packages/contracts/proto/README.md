@@ -10,6 +10,9 @@ gRPC service contracts (`*.proto`) live here, one file per service:
 Rules:
 
 - Contract changes land **before** the service implementation (spec-driven).
-- Proto files are loaded at runtime via `@grpc/proto-loader` — no codegen.
-- Lint with `bun run proto:lint` (requires `buf` CLI).
+- TypeScript stubs are **codegenerated** — `bun run proto:gen`
+  (buf + `ts-proto`, `nestJs=true`) into `src/gen/`, committed output or
+  generated on install (decided by the first service plan).
+- Lint with `bun run proto:lint` (requires `buf` CLI); `buf breaking` in CI
+  guards compatibility.
 - Use package `bookshop.<service>.v1` and keep field numbers stable.

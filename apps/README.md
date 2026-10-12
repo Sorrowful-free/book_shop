@@ -9,7 +9,7 @@ implementation.
 | ---------------- | ------------------ | ----- | ------------------- | ------- |
 | `web`            | Nuxt (Vue SSR)     | 3001  | —                   | planned |
 | `api-gateway`    | NestJS (HTTP REST) | 3000  | —                   | planned |
-| `auth-service`   | NestJS (gRPC)      | 50051 | PostgreSQL `auth`   | planned |
-| `catalog-service`| NestJS (gRPC)      | 50052 | PostgreSQL `catalog`| planned |
+| `auth-service`   | NestJS (gRPC)      | 50051 | PostgreSQL `auth_db` + Redis (denylist) | planned |
+| `catalog-service`| NestJS (gRPC)      | 50052 | PostgreSQL `catalog_db` | planned |
 | `cart-service`   | NestJS (gRPC)      | 50053 | Redis               | planned |
-| `order-service`  | NestJS (gRPC)      | 50054 | PostgreSQL `order`  | planned |
+| `order-service`  | NestJS (gRPC)      | 50054 | PostgreSQL `order_db` | planned |

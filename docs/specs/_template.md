@@ -29,10 +29,12 @@
 
 gRPC-клиенты к другим сервисам: какие RPC вызываем, зачем, поведение при недоступности.
 
-## 6. Авторизация
+## 6. Аутентификация и авторизация
 
-Какие RPC требуют user-context из gRPC metadata (`x-user-id`, `x-user-role`),
-какие роли допустимы. JWT верифицируется на gateway — сервис доверяет metadata.
+Какие RPC требуют валидный JWT (metadata `authorization`, верификация в самом
+сервисе через `JwtVerifier` из `@book-shop/common` — EdDSA public key +
+Redis-denylist `auth:revoked:{jti}`), какие роли/ownership-правила применяются.
+Gateway — первый рубеж (roles-матрица), но не единственный.
 
 ## 7. Env-переменные
 
@@ -57,3 +59,5 @@ gRPC-клиенты к другим сервисам: какие RPC вызыв�
 ## 11. NFR
 
 Timeouts, retries, идемпотентность, лимиты.
+Обязательно: runtime portability — код работает под Node.js LTS и Bun
+(без `Bun.*`/`bun:*` вне тестов, см. AGENTS.md).

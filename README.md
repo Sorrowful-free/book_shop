@@ -38,7 +38,9 @@ frontend behind a REST api-gateway.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh)
+- [Bun](https://bun.sh) — dev toolchain (install, test, scripts). Application
+  code is runtime-agnostic and must also run under Node.js LTS — no
+  `Bun.*`/`bun:*` outside tests (enforced by eslint, see AGENTS.md)
 - Docker + Docker Compose
 - `buf` CLI (optional, for proto lint)
 

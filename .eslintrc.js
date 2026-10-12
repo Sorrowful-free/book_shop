@@ -24,5 +24,45 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
+    'no-restricted-globals': [
+      'error',
+      {
+        name: 'Bun',
+        message:
+          'Bun-only APIs are forbidden — code must run under Node.js too (see AGENTS.md)',
+      },
+    ],
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: ['bun', 'bun:*'],
+            message:
+              'Bun-only modules are forbidden in app code (see AGENTS.md)',
+          },
+        ],
+      },
+    ],
   },
+  overrides: [
+    {
+      // test files may use the bun test runner (dev tooling only)
+      files: ['**/*.spec.ts', '**/test/**/*.ts'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['bun', 'bun:*', '!bun:test'],
+                message:
+                  'Only "bun:test" is allowed in test files (see AGENTS.md)',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
 };
