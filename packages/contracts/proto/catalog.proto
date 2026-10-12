@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package bookshop.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Book catalog: metadata, stock and temporary reservations.
+// See docs/specs/02-catalog-service.md.
+service CatalogService {
+  // Public storefront listing (offset pagination, limit <= 100).
+  rpc ListBooks(ListBooksRequest) returns (ListBooksResponse);
+  // Public substring search on book_name/author + exact genre filter.
+  rpc SearchBooks(SearchBooksRequest) returns (SearchBooksResponse);
+  rpc GetBook(GetBookRequest) returns (GetBookResponse);
+  // NOT_FOUND if any id is missing (deleted books ARE returned).
+  rpc GetBooksByIds(GetBooksByIdsRequest) returns (GetBooksByIdsResponse);
+  // EMPLOYER or ADMIN.
+  rpc CreateBook(CreateBookRequest) returns (CreateBookResponse);
+  // EMPLOYER or ADMIN.
+  rpc UpdateBook(UpdateBookRequest) returns (UpdateBookResponse);
+  // ADMIN only — soft delete.
+  rpc DeleteBook(DeleteBookRequest) returns (DeleteBookResponse);
+  // ADMIN only — clears soft delete.
+  rpc RestoreBook(RestoreBookRequest) returns (RestoreBookResponse);
+  // Any valid JWT — atomic all-or-nothing reservation with TTL.
+  rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
+  // Any valid JWT — idempotent commit (stock decrement).
+  rpc CommitStock(CommitStockRequest) returns (CommitStockResponse);
+  // Any valid JWT — cancel a reservation.
+  rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+}
+
+message Book {
+  string book_id = 1;
+  string book_name = 2;
+  string author = 3;
+  optional string isbn = 4;
+  optional string description = 5;
+  optional string genre = 6;
+  optional int32 year = 7;
+  optional string cover_url = 8;
+  // Decimal(10,2) in storage, double on the wire.
+  double price = 9;
+  // Raw stock on hand.
+  int32 stock = 10;
+  // stock - active reservations; always 0 for deleted books.
+  int32 available = 11;
+  bool is_deleted = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message ListBooksRequest {
+  int32 offset = 1;
+  int32 limit = 2;
+}
+
+message ListBooksResponse {
+  repeated Book books = 1;
+  int64 total = 2;
+}
+
+message SearchBooksRequest {
+  optional string query = 1;
+  optional string genre = 2;
+  int32 offset = 3;
+  int32 limit = 4;
+}
+
+message SearchBooksResponse {
+  repeated Book books = 1;
+  int64 total = 2;
+}
+
+message GetBookRequest {
+  string book_id = 1;
+}
+
+message GetBookResponse {
+  Book book = 1;
+}
+
+message GetBooksByIdsRequest {
+  repeated string book_ids = 1;
+}
+
+message GetBooksByIdsResponse {
+  repeated Book books = 1;
+}
+
+message CreateBookRequest {
+  string book_name = 1;
+  string author = 2;
+  optional string isbn = 3;
+  optional string description = 4;
+  optional string genre = 5;
+  optional int32 year = 6;
+  optional string cover_url = 7;
+  double price = 8;
+  int32 stock = 9;
+}
+
+message CreateBookResponse {
+  Book book = 1;
+}
+
+message UpdateBookRequest {
+  string book_id = 1;
+  optional string book_name = 2;
+  optional string author = 3;
+  optional string isbn = 4;
+  optional string description = 5;
+  optional string genre = 6;
+  optional int32 year = 7;
+  optional string cover_url = 8;
+  optional double price = 9;
+  optional int32 stock = 10;
+}
+
+message UpdateBookResponse {
+  Book book = 1;
+}
+
+message DeleteBookRequest {
+  string book_id = 1;
+}
+
+message DeleteBookResponse {
+}
+
+message RestoreBookRequest {
+  string book_id = 1;
+}
+
+message RestoreBookResponse {
+  Book book = 1;
+}
+
+message StockReservationItem {
+  string book_id = 1;
+  int32 amount = 2;
+}
+
+message ReserveStockRequest {
+  repeated StockReservationItem items = 1;
+}
+
+message ReserveStockResponse {
+  string reservation_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message CommitStockRequest {
+  string reservation_id = 1;
+}
+
+message CommitStockResponse {
+}
+
+message ReleaseStockRequest {
+  string reservation_id = 1;
+}
+
+message ReleaseStockResponse {
+}

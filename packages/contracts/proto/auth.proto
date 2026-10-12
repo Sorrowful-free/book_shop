@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package bookshop.auth.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Identity service: registration, login, refresh rotation, token
+// revocation/validation and user profile reads. See docs/specs/01-auth-service.md.
+service AuthService {
+  // Creates a CUSTOMER user and returns a token pair (auto-login).
+  // Errors: INVALID_ARGUMENT, ALREADY_EXISTS.
+  rpc Register(RegisterRequest) returns (AuthTokens);
+  // Errors: INVALID_ARGUMENT, UNAUTHENTICATED.
+  rpc Login(LoginRequest) returns (AuthTokens);
+  // Rotates the refresh token (old jti is revoked).
+  // Errors: UNAUTHENTICATED.
+  rpc Refresh(RefreshRequest) returns (AuthTokens);
+  // Logout: marks the refresh jti revoked; when access_token is present its
+  // jti is signature-checked and written to the Redis denylist with
+  // TTL = exp - now (skipped when <= 0). Idempotent.
+  // Errors: UNAUTHENTICATED (bad signature).
+  rpc RevokeToken(RevokeTokenRequest) returns (google.protobuf.Empty);
+  // Signature + expiry + denylist check. Never errors — invalid input
+  // yields valid=false.
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  // Own profile: any role. Foreign profile: ADMIN or EMPLOYER only.
+  // Errors: UNAUTHENTICATED, NOT_FOUND, PERMISSION_DENIED.
+  rpc GetUser(GetUserRequest) returns (User);
+}
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_ADMIN = 1;
+  ROLE_EMPLOYER = 2;
+  ROLE_CUSTOMER = 3;
+}
+
+message RegisterRequest {
+  // 3-32 chars, [a-zA-Z0-9_].
+  string user_name = 1;
+  // Min 8 chars, at least one letter, one digit and one special character.
+  string password = 2;
+}
+
+message LoginRequest {
+  string user_name = 1;
+  string password = 2;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+message RevokeTokenRequest {
+  string refresh_token = 1;
+  // Optional: checked by signature only (expiry is not verified).
+  optional string access_token = 2;
+}
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  // Present only when valid = true.
+  UserContext user = 2;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// Access JWT payload mirrors: sub = user_id, user_name, role, jti (uuid).
+message AuthTokens {
+  string access_token = 1;
+  string refresh_token = 2;
+  // Seconds until expiry.
+  int64 access_token_expires_in = 3;
+  int64 refresh_token_expires_in = 4;
+}
+
+message User {
+  string user_id = 1;
+  string user_name = 2;
+  Role role = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message UserContext {
+  string user_id = 1;
+  string user_name = 2;
+  Role role = 3;
+}

@@ -1,0 +1,48 @@
+// auth_db — see docs/specs/01-auth-service.md §3
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYER
+  CUSTOMER
+}
+
+model User {
+  id            String         @id @default(uuid())
+  userName      String         @unique @map("user_name")
+  passwordHash  String         @map("password_hash")
+  role          Role           @default(CUSTOMER)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id // jti from the refresh JWT
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id])
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model Outbox {
+  id          String    @id @default(uuid())
+  eventType   String    @map("event_type")
+  payload     Json
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("outbox")
+}

@@ -1,0 +1,14 @@
+/**
+ * Redis denylist write side — TYPE DECLARATIONS ONLY (TDD contract phase).
+ * Spec §2: key `auth:revoked:{jti}` = "1", TTL = remaining seconds until the
+ * access token's exp. auth-service is the only writer; every JwtVerifier
+ * (packages/common) reads via TokenDenylist.isRevoked.
+ */
+
+export interface TokenDenylistWriter {
+  /**
+   * Record `jti` as revoked for `ttlSeconds`. Callers skip the write when
+   * ttlSeconds <= 0 (already-expired token — nothing left to revoke).
+   */
+  revoke(jti: string, ttlSeconds: number): Promise<void>;
+}

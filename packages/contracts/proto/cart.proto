@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package bookshop.cart.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Temporary shopping carts with sliding Redis TTL: guest carts addressed by a
+// service-issued uuid `cart_id`, user carts addressed by the `sub` of a
+// verified JWT from `authorization` metadata.
+// See docs/specs/03-cart-service.md.
+service CartService {
+  // Issues a new guest cart_id (uuid, kept in a cookie by the client).
+  // No auth required.
+  rpc CreateCart(CreateCartRequest) returns (CreateCartResponse);
+  // cart_id present → guest cart; cart_id absent → user cart (JWT required).
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT (malformed cart_id).
+  rpc GetCart(GetCartRequest) returns (Cart);
+  // Sums amount when the book is already in the cart.
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT (amount <= 0, malformed cart_id).
+  rpc AddItem(AddItemRequest) returns (Cart);
+  // Sets the absolute amount; amount = 0 removes the position;
+  // a missing position → NOT_FOUND.
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT (amount < 0), NOT_FOUND.
+  rpc UpdateItem(UpdateItemRequest) returns (Cart);
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT, NOT_FOUND.
+  rpc RemoveItem(RemoveItemRequest) returns (Cart);
+  // Idempotent.
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT.
+  rpc ClearCart(ClearCartRequest) returns (google.protobuf.Empty);
+  // Sums the guest positions into the caller's user cart and deletes the
+  // guest cart; a missing guest_cart_id is a no-op success. Called by
+  // api-gateway after login/register. NOTE: guest_cart_id is the merge
+  // SOURCE — it does not switch the request into guest mode; the target
+  // cart is always the user cart, so a valid JWT is required.
+  // Errors: INVALID_ARGUMENT, UNAUTHENTICATED (no valid JWT).
+  rpc MergeCart(MergeCartRequest) returns (Cart);
+}
+
+// Raw positions only — enrichment (title, price, availability) is the
+// api-gateway/BFF responsibility.
+message Cart {
+  repeated CartItem items = 1;
+  // Sliding-TTL expiry; absent for an empty/missing cart.
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message CartItem {
+  string book_id = 1;
+  int32 amount = 2;
+}
+
+message CreateCartRequest {
+}
+
+message CreateCartResponse {
+  // Service-issued guest cart uuid.
+  string cart_id = 1;
+}
+
+message GetCartRequest {
+  // Present → guest cart; absent → user cart by JWT sub.
+  optional string cart_id = 1;
+}
+
+message AddItemRequest {
+  optional string cart_id = 1;
+  string book_id = 2;
+  int32 amount = 3;
+}
+
+message UpdateItemRequest {
+  optional string cart_id = 1;
+  string book_id = 2;
+  int32 amount = 3;
+}
+
+message RemoveItemRequest {
+  optional string cart_id = 1;
+  string book_id = 2;
+}
+
+message ClearCartRequest {
+  optional string cart_id = 1;
+}
+
+message MergeCartRequest {
+  // Merge source; NOT an owner selector — the request stays in user mode.
+  string guest_cart_id = 1;
+}

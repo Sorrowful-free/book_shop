@@ -1,0 +1,71 @@
+// catalog_db — see docs/specs/02-catalog-service.md §3
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReservationStatus {
+  ACTIVE
+  COMMITTED
+  RELEASED
+  EXPIRED
+}
+
+model Book {
+  id               String            @id @default(uuid())
+  bookName         String            @map("book_name")
+  author           String
+  isbn             String?           @unique
+  description      String?
+  genre            String?
+  year             Int?
+  coverUrl         String?           @map("cover_url")
+  price            Decimal           @db.Decimal(10, 2)
+  stock            Int               @default(0)
+  deletedAt        DateTime?         @map("deleted_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  reservationItems ReservationItem[]
+
+  @@index([bookName])
+  @@index([genre])
+  @@map("books")
+}
+
+model Reservation {
+  id        String            @id @default(uuid())
+  status    ReservationStatus @default(ACTIVE)
+  expiresAt DateTime          @map("expires_at")
+  items     ReservationItem[]
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  @@index([status, expiresAt])
+  @@map("reservations")
+}
+
+model ReservationItem {
+  id            String      @id @default(uuid())
+  reservationId String      @map("reservation_id")
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  bookId        String      @map("book_id")
+  book          Book        @relation(fields: [bookId], references: [id])
+  amount        Int
+
+  @@index([bookId])
+  @@map("reservation_items")
+}
+
+model Outbox {
+  id          String    @id @default(uuid())
+  eventType   String    @map("event_type")
+  payload     Json
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("outbox")
+}
