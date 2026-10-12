@@ -5,5 +5,5 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src", "test", "prisma"]
+  "include": ["src", "test", "prisma", "scripts"]
 }

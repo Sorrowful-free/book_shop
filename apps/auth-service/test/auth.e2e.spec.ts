@@ -34,8 +34,10 @@ const uniqueName = () => `u_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 
 type AuthClient = authProto.AuthServiceClient;
 
+const openProxies: { close(): unknown }[] = [];
+
 function grpcClient(url: string): AuthClient {
-  const client = ClientProxyFactory.create({
+  const proxy = ClientProxyFactory.create({
     transport: Transport.GRPC,
     options: {
       package: GRPC_PACKAGE,
@@ -43,8 +45,17 @@ function grpcClient(url: string): AuthClient {
       url,
       loader: { keepCase: false, longs: Number, defaults: true }
     }
-  }) as ClientGrpc;
-  return client.getService<AuthClient>(authProto.AUTH_SERVICE_NAME);
+  });
+  // Open client channels keep gRPC servers from shutting down — track and
+  // close them in afterAll hooks.
+  openProxies.push(proxy);
+  return (proxy as unknown as ClientGrpc).getService<AuthClient>(
+    authProto.AUTH_SERVICE_NAME
+  );
+}
+
+async function closeProxies(): Promise<void> {
+  await Promise.all(openProxies.splice(0).map((proxy) => proxy.close()));
 }
 
 function call<T>(observable: Observable<T>): Promise<T> {
@@ -221,9 +232,10 @@ describe("auth-service e2e (real postgres + redis + kafka)", () => {
   }, 90_000);
 
   afterAll(async () => {
+    await closeProxies();
     await consumer?.disconnect();
     await app?.close();
-  });
+  }, 30_000);
 
   it("register → validate → login → refresh → revoke → revoked tokens rejected", async () => {
     const userName = uniqueName();
@@ -397,6 +409,7 @@ describe("outbox relay survives broker outage", () => {
       deadClient.register({ userName, password: PASSWORD })
     );
     expect(pair.accessToken).toBeTruthy();
+    await closeProxies();
     await deadBrokerApp.close();
 
     // "Broker comes back": a fresh instance with working brokers picks the

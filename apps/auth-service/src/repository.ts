@@ -63,6 +63,19 @@ export interface AuthRepository {
 
   createRefreshToken(row: NewRefreshToken): Promise<void>;
 
-  /** Mark revoked (sets revoked_at). */
-  revokeRefreshToken(jti: string, revokedAt: Date): Promise<void>;
+  /**
+   * Atomically mark revoked (sets revoked_at WHERE revoked_at IS NULL).
+   * Returns the affected row count: 0 means the jti was already revoked or
+   * is unknown — callers treat that as a replay (Refresh) or ignore it
+   * (RevokeToken is idempotent).
+   */
+  revokeRefreshToken(jti: string, revokedAt: Date): Promise<number>;
+
+  /**
+   * GC (fixes spec F-A1): delete rows whose expires_at is strictly older
+   * than `cutoff` — revoked and never-revoked alike, the only criterion is
+   * the age of the expiry. Rows that are still live or expired less than
+   * the audit retention ago are untouched.
+   */
+  deleteExpiredRefreshTokens(cutoff: Date): Promise<number>;
 }

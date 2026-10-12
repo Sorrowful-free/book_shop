@@ -4,6 +4,8 @@ export interface OutboxRow {
   id: string;
   eventType: string;
   payload: unknown;
+  /** Row creation time — becomes the event's occurredAt when present. */
+  occurredAt?: Date;
 }
 
 export interface OutboxStore {
@@ -14,7 +16,7 @@ export interface OutboxStore {
 export interface EventPublisher {
   publish(
     topic: string,
-    message: { eventType: string; payload: unknown }
+    message: { eventType: string; payload: unknown; occurredAt?: Date }
   ): Promise<void>;
 }
 
@@ -74,7 +76,8 @@ export class OutboxRelay {
         }
         await this.publisher.publish(topic, {
           eventType: row.eventType,
-          payload: row.payload
+          payload: row.payload,
+          occurredAt: row.occurredAt
         });
         await this.store.markPublished([row.id]);
       }

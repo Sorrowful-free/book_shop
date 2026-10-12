@@ -108,7 +108,7 @@ Redis-denylist, `JwtVerifier` + `RedisTokenDenylist` из `@book-shop/common`
 | `REDIS_URL`     | подключение к Redis     | `redis://localhost:6379`|
 | `CART_TTL_SEC`  | TTL корзины (sliding)   | `604800` (7 дней)       |
 | `KAFKA_BROKERS` | brokers через запятую   | `localhost:29092`       |
-| `JWT_PUBLIC_KEY`| PEM публичного ключа, base64 | `<base64>`         |
+| `JWT_PUBLIC_KEY`| PEM публичного ключа, base64 (или `JWT_PUBLIC_KEY_FILE` — путь к файлу; файл имеет приоритет) | `<base64>`         |
 
 ## 8. Модель ошибок
 

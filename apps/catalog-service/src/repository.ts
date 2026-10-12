@@ -1,4 +1,5 @@
-// Repository contract — types only, no runtime code (TDD phase).
+// Repository contract — the CatalogRepository interface, its result types
+// and the domain error (StockBelowReservedError) shared by every adapter.
 // The implementation phase provides a Prisma-backed CatalogRepository;
 // unit tests substitute an in-memory test double. All write methods that
 // publish domain events take a `buildEvent` callback so the mutation and
@@ -91,8 +92,12 @@ export type ReserveResult =
  * CommitStock must be idempotent: committing an already-COMMITTED reservation
  * succeeds without decrementing stock twice. Missing, released and expired
  * (ACTIVE with expires_at <= now) reservations all collapse to `not_found`.
+ * `insufficient_stock` means the guarded stock decrement failed — stock moved
+ * below the reserved amount since ReserveStock (the stock >= 0 invariant must
+ * hold regardless); the service maps it to FAILED_PRECONDITION.
  */
-export type CommitResult = "committed" | "already_committed" | "not_found";
+export type CommitResult =
+  "committed" | "already_committed" | "insufficient_stock" | "not_found";
 
 /**
  * ReleaseStock: only a live ACTIVE reservation can be released.
@@ -100,6 +105,30 @@ export type CommitResult = "committed" | "already_committed" | "not_found";
  * missing/expired reservations return `not_found`.
  */
 export type ReleaseResult = "released" | "invalid_state" | "not_found";
+
+/**
+ * RestoreBook outcomes: `not_found` when no such book exists, `not_deleted`
+ * when the book exists but deleted_at is already NULL (the conditional
+ * UPDATE affected 0 rows).
+ */
+export type RestoreResult = BookRecord | "not_found" | "not_deleted";
+
+/**
+ * Thrown by updateBookWithOutbox when `patch.stock` would drop below the sum
+ * of live (ACTIVE, non-expired) reservations for the book — a later
+ * CommitStock could not be fulfilled. Mapped to FAILED_PRECONDITION.
+ */
+export class StockBelowReservedError extends Error {
+  constructor(
+    public readonly bookId: string,
+    public readonly reserved: number
+  ) {
+    super(
+      `stock for book ${bookId} cannot be lowered below ${reserved} active reservations`
+    );
+    this.name = "StockBelowReservedError";
+  }
+}
 
 export interface CatalogRepository {
   // ---- reads (public RPCs) ----
@@ -126,9 +155,16 @@ export interface CatalogRepository {
     book: NewBook,
     buildEvent: (created: BookRecord) => OutboxEventInput
   ): Promise<BookRecord>;
+  /**
+   * Applies the patch and writes the outbox row in one transaction.
+   * When `patch.stock` is set it is checked (under the book's row lock)
+   * against live reservations — lowering below them throws
+   * StockBelowReservedError. `now` decides which ACTIVE reservations count.
+   */
   updateBookWithOutbox(
     id: string,
     patch: BookPatch,
+    now: Date,
     buildEvent: (updated: BookRecord) => OutboxEventInput
   ): Promise<BookRecord | null>;
   /** Soft delete: sets deleted_at. Emits catalog.book.deleted. */
@@ -137,8 +173,11 @@ export interface CatalogRepository {
     deletedAt: Date,
     buildEvent: (book: BookRecord) => OutboxEventInput
   ): Promise<BookRecord | null>;
-  /** Clears deleted_at. Publishes NO event. */
-  restoreBook(id: string): Promise<BookRecord | null>;
+  /**
+   * Atomically clears deleted_at (`UPDATE … WHERE deleted_at IS NOT NULL`).
+   * Publishes NO event. See RestoreResult for the failure variants.
+   */
+  restoreBook(id: string): Promise<RestoreResult>;
 
   // ---- reservations ----
   /** Atomic all-or-nothing reservation; see ReserveResult. */

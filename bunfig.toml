@@ -1,0 +1,8 @@
+# Hoisted (npm-style) linker: Bun's default isolated linker creates one
+# package instance per workspace dependency closure. That breaks NestJS
+# module-identity assumptions (loadPackage() cache keyed by specifier,
+# instanceof RpcException checks) when several apps run in one process
+# (e.g. `bun test` across e2e files). A single flat node_modules tree keeps
+# exactly one copy of each package version, matching Node.js semantics.
+[install]
+linker = "hoisted"

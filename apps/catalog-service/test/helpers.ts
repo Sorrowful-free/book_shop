@@ -22,8 +22,10 @@ import type {
   ReservationItemRecord,
   ReservationRecord,
   ReserveResult,
+  RestoreResult,
   SearchRequest
 } from "../src/repository";
+import { StockBelowReservedError } from "../src/repository";
 
 // ---------------------------------------------------------------------------
 // In-memory CatalogRepository test double
@@ -74,7 +76,9 @@ export class InMemoryCatalogRepository implements CatalogRepository {
         (!query ||
           book.bookName.toLowerCase().includes(query) ||
           book.author.toLowerCase().includes(query)) &&
-        (search.genre === undefined || book.genre === search.genre)
+        (search.genre === undefined ||
+          search.genre === "" ||
+          book.genre === search.genre)
     );
     return {
       books: all
@@ -151,11 +155,19 @@ export class InMemoryCatalogRepository implements CatalogRepository {
   async updateBookWithOutbox(
     id: string,
     patch: BookPatch,
+    now: Date,
     buildEvent: (updated: BookRecord) => OutboxEventInput
   ): Promise<BookRecord | null> {
     const book = this.books.get(id);
     if (!book) {
       return null;
+    }
+    if (patch.stock !== undefined) {
+      const reserved = await this.sumActiveReserved([id], now);
+      const held = reserved[id] ?? 0;
+      if (patch.stock < held) {
+        throw new StockBelowReservedError(id, held);
+      }
     }
     for (const [key, value] of Object.entries(patch)) {
       if (value !== undefined) {
@@ -182,10 +194,13 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return this.cloneBook(book);
   }
 
-  async restoreBook(id: string): Promise<BookRecord | null> {
+  async restoreBook(id: string): Promise<RestoreResult> {
     const book = this.books.get(id);
     if (!book) {
-      return null;
+      return "not_found";
+    }
+    if (book.deletedAt === null) {
+      return "not_deleted";
     }
     book.deletedAt = null;
     book.updatedAt = new Date();
@@ -245,11 +260,23 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     ) {
       return "not_found";
     }
+    // Same guard as the SQL `stock >= amount` (a missing row also affects 0
+    // rows): check every position first so a failure leaves nothing
+    // decremented. Aggregate per bookId — the real impl's sequential guarded
+    // UPDATEs see post-decrement stock, so duplicate bookIds in one
+    // reservation must sum.
+    const needed = new Map<string, number>();
     for (const item of reservation.items) {
-      const book = this.books.get(item.bookId);
-      if (book) {
-        book.stock -= item.amount;
+      needed.set(item.bookId, (needed.get(item.bookId) ?? 0) + item.amount);
+    }
+    for (const [bookId, amount] of needed) {
+      const book = this.books.get(bookId);
+      if (!book || book.stock < amount) {
+        return "insufficient_stock";
       }
+    }
+    for (const item of reservation.items) {
+      this.books.get(item.bookId)!.stock -= item.amount;
     }
     reservation.status = "COMMITTED";
     return "committed";

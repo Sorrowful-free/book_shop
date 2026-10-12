@@ -22,6 +22,7 @@ function sign(
     user_name: "vasya",
     role: UserRole.Customer,
     jti: "jti-1",
+    typ: "access",
     ...claims
   })
     .setProtectedHeader({ alg: "EdDSA" })
@@ -60,7 +61,11 @@ describe("JwtVerifier", () => {
   it("rejects an expired token", async () => {
     const { privateKey, publicKeyBase64 } = await makeKeys();
     const verifier = new JwtVerifier({ publicKey: publicKeyBase64 });
-    const token = await new SignJWT({ user_name: "v", role: UserRole.Customer })
+    const token = await new SignJWT({
+      user_name: "v",
+      role: UserRole.Customer,
+      typ: "access"
+    })
       .setProtectedHeader({ alg: "EdDSA" })
       .setSubject("user-1")
       .setIssuedAt(Math.floor(Date.now() / 1000) - 120)
@@ -79,6 +84,30 @@ describe("JwtVerifier", () => {
     expect(
       await verifier.verify(await sign(privateKey, { jti: "other" }))
     ).not.toBeNull();
+  });
+
+  it("rejects a token without a typ claim", async () => {
+    const { privateKey, publicKeyBase64 } = await makeKeys();
+    const verifier = new JwtVerifier({ publicKey: publicKeyBase64 });
+    expect(
+      await verifier.verify(await sign(privateKey, { typ: undefined }))
+    ).toBeNull();
+  });
+
+  it("rejects a refresh token presented as a bearer access token", async () => {
+    const { privateKey, publicKeyBase64 } = await makeKeys();
+    const verifier = new JwtVerifier({ publicKey: publicKeyBase64 });
+    expect(
+      await verifier.verify(await sign(privateKey, { typ: "refresh" }))
+    ).toBeNull();
+  });
+
+  it("rejects a token with an unknown typ value", async () => {
+    const { privateKey, publicKeyBase64 } = await makeKeys();
+    const verifier = new JwtVerifier({ publicKey: publicKeyBase64 });
+    expect(
+      await verifier.verify(await sign(privateKey, { typ: "id" }))
+    ).toBeNull();
   });
 
   it("rejects malformed input", async () => {

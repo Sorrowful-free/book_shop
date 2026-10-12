@@ -139,6 +139,19 @@ describe("SearchBooks — substring query + exact genre", () => {
     const res = await service.searchBooks({ offset: 0, limit: 10 });
     expect(res.total).toBe(2);
   });
+
+  it("treats an empty genre string as absent (like an empty query)", async () => {
+    const { service, repository } = harness();
+    seedBook(repository, { genre: "fantasy" });
+    seedBook(repository, { genre: "sci-fi" });
+
+    const res = await service.searchBooks({
+      genre: "",
+      offset: 0,
+      limit: 10
+    });
+    expect(res.total).toBe(2);
+  });
 });
 
 describe("GetBook / GetBooksByIds", () => {
@@ -414,6 +427,36 @@ describe("UpdateBook", () => {
       status.INVALID_ARGUMENT
     );
   });
+
+  it("rejects lowering stock below active reservations with FAILED_PRECONDITION", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { stock: 5 });
+    seedReservation(repository, {
+      items: [{ bookId: book.id, amount: 3 }]
+    });
+
+    await expectGrpcError(
+      service.updateBook({ bookId: book.id, stock: 2 }, ADMIN),
+      status.FAILED_PRECONDITION
+    );
+    // rejected patch was not applied
+    expect(repository.books.get(book.id)?.stock).toBe(5);
+    // lowering to exactly the reserved amount is allowed
+    const res = await service.updateBook({ bookId: book.id, stock: 3 }, ADMIN);
+    expect(res.book?.stock).toBe(3);
+  });
+
+  it("ignores expired reservations when validating a stock patch", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { stock: 5 });
+    seedReservation(repository, {
+      items: [{ bookId: book.id, amount: 4 }],
+      expiresAt: new Date(Date.now() - 1_000) // already expired
+    });
+
+    const res = await service.updateBook({ bookId: book.id, stock: 1 }, ADMIN);
+    expect(res.book?.stock).toBe(1);
+  });
 });
 
 describe("DeleteBook / RestoreBook (soft delete)", () => {
@@ -473,5 +516,127 @@ describe("DeleteBook / RestoreBook (soft delete)", () => {
     const book = seedBook(repository, { deletedAt: new Date() });
     await service.restoreBook({ bookId: book.id }, ADMIN);
     expect(repository.outbox).toHaveLength(0);
+  });
+});
+
+describe("column-boundary overflow guards (F-C2)", () => {
+  it.each([1e15, 100_000_000])(
+    "rejects createBook price=%j above the Decimal(10,2) bound",
+    async (price) => {
+      const { service, repository } = harness();
+      await expectGrpcError(
+        service.createBook(
+          { bookName: "Dune", author: "Frank Herbert", price, stock: 1 },
+          ADMIN
+        ),
+        status.INVALID_ARGUMENT
+      );
+      // rejected before the repository — nothing persisted
+      expect(repository.books.size).toBe(0);
+    }
+  );
+
+  it("accepts the exact Decimal(10,2) boundary price 99999999.99", async () => {
+    const { service } = harness();
+    const res = await service.createBook(
+      { bookName: "Edge", author: "A", price: 99_999_999.99, stock: 1 },
+      ADMIN
+    );
+    expect(res.book?.price).toBe(99_999_999.99);
+  });
+
+  it("rejects updateBook price=1e15 with INVALID_ARGUMENT, book untouched", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { price: 10 });
+    await expectGrpcError(
+      service.updateBook({ bookId: book.id, price: 1e15 }, ADMIN),
+      status.INVALID_ARGUMENT
+    );
+    expect(repository.books.get(book.id)?.price).toBe(10);
+  });
+
+  it.each([2_147_483_648, 1e10])(
+    "rejects createBook stock=%j above the int4 bound",
+    async (stock) => {
+      const { service, repository } = harness();
+      await expectGrpcError(
+        service.createBook(
+          { bookName: "Dune", author: "Frank Herbert", price: 1, stock },
+          ADMIN
+        ),
+        status.INVALID_ARGUMENT
+      );
+      expect(repository.books.size).toBe(0);
+    }
+  );
+
+  it("accepts stock exactly at int32 max", async () => {
+    const { service } = harness();
+    const res = await service.createBook(
+      { bookName: "Dune", author: "A", price: 1, stock: 2_147_483_647 },
+      ADMIN
+    );
+    expect(res.book?.stock).toBe(2_147_483_647);
+  });
+
+  it("rejects updateBook stock above int32 max", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { stock: 5 });
+    await expectGrpcError(
+      service.updateBook({ bookId: book.id, stock: 2_147_483_648 }, ADMIN),
+      status.INVALID_ARGUMENT
+    );
+    expect(repository.books.get(book.id)?.stock).toBe(5);
+  });
+
+  it("rejects duplicate book_ids whose summed amount overflows int32", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { stock: 10 });
+    await expectGrpcError(
+      service.reserveStock(
+        {
+          items: [
+            { bookId: book.id, amount: 2_147_483_647 },
+            { bookId: book.id, amount: 1 }
+          ]
+        },
+        caller(UserRole.Customer)
+      ),
+      status.INVALID_ARGUMENT
+    );
+    // rejected before the repository — no reservation row exists
+    expect(repository.reservations.size).toBe(0);
+  });
+
+  it("accepts a single position at int32 max (shape ok, fails on stock)", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { stock: 10 });
+    // amount itself is a valid int32 — the rejection is FAILED_PRECONDITION
+    // (insufficient stock), not INVALID_ARGUMENT
+    await expectGrpcError(
+      service.reserveStock(
+        { items: [{ bookId: book.id, amount: 2_147_483_647 }] },
+        caller(UserRole.Customer)
+      ),
+      status.FAILED_PRECONDITION
+    );
+  });
+});
+
+describe("proto3 implicit presence — absent means default (F-C3)", () => {
+  it("treats an absent offset as the proto3 default 0", async () => {
+    const { service, repository } = harness();
+    seedBook(repository);
+    // `offset: 0` is never serialized on the wire — it arrives absent.
+    const res = await service.listBooks({
+      offset: undefined as unknown as number,
+      limit: 10
+    });
+    expect(res.total).toBe(1);
+    const found = await service.searchBooks({
+      offset: undefined as unknown as number,
+      limit: 10
+    });
+    expect(found.total).toBe(1);
   });
 });

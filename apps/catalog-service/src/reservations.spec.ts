@@ -144,6 +144,36 @@ describe("CommitStock", () => {
     expect(twice.book?.stock).toBe(8);
   });
 
+  it("returns FAILED_PRECONDITION and rolls back when stock dropped below the reserved amount", async () => {
+    const { service, repository } = harness();
+    const book = seedBook(repository, { stock: 5 });
+    const other = seedBook(repository, { stock: 5 });
+
+    const res = await service.reserveStock(
+      {
+        items: [
+          { bookId: book.id, amount: 2 },
+          { bookId: other.id, amount: 1 }
+        ]
+      },
+      CALLER
+    );
+    // stock moved out-of-band since ReserveStock — below the held amount
+    repository.books.get(other.id)!.stock = 0;
+
+    await expectGrpcError(
+      service.commitStock({ reservationId: res.reservationId }, CALLER),
+      status.FAILED_PRECONDITION
+    );
+
+    // all-or-nothing rollback: no position decremented, still ACTIVE
+    expect(repository.books.get(book.id)?.stock).toBe(5);
+    expect(repository.books.get(other.id)?.stock).toBe(0);
+    expect(repository.reservations.get(res.reservationId)?.status).toBe(
+      "ACTIVE"
+    );
+  });
+
   it("returns NOT_FOUND for an unknown reservation", async () => {
     const { service } = harness();
     await expectGrpcError(

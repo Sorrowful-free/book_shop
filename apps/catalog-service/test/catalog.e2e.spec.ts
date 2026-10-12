@@ -25,6 +25,7 @@ import {
   KAFKA_TOPICS,
   UserRole
 } from "@book-shop/contracts";
+import { PrismaClient } from "../src/generated/prisma";
 
 const APP_DIR = path.resolve(
   fileURLToPath(new URL(".", import.meta.url)),
@@ -42,8 +43,10 @@ type CatalogClient = catalogProto.CatalogServiceClient;
 type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
 let signingKey: SigningKey;
 
+const openProxies: { close(): unknown }[] = [];
+
 function grpcClient(url: string): CatalogClient {
-  const client = ClientProxyFactory.create({
+  const proxy = ClientProxyFactory.create({
     transport: Transport.GRPC,
     options: {
       package: GRPC_PACKAGE,
@@ -51,8 +54,17 @@ function grpcClient(url: string): CatalogClient {
       url,
       loader: { keepCase: false, longs: Number, defaults: true }
     }
-  }) as ClientGrpc;
-  return client.getService<CatalogClient>(catalogProto.CATALOG_SERVICE_NAME);
+  });
+  // Open client channels keep gRPC servers from shutting down — track and
+  // close them in afterAll hooks / test teardown.
+  openProxies.push(proxy);
+  return (proxy as unknown as ClientGrpc).getService<CatalogClient>(
+    catalogProto.CATALOG_SERVICE_NAME
+  );
+}
+
+async function closeProxies(): Promise<void> {
+  await Promise.all(openProxies.splice(0).map((proxy) => proxy.close()));
 }
 
 function call<T>(observable: Observable<T>): Promise<T> {
@@ -98,11 +110,27 @@ async function expectGrpcCode(
 }
 
 function runMigrations(): void {
-  const local = path.join(APP_DIR, "node_modules", ".bin", "prisma");
-  const root = path.join(APP_DIR, "..", "..", "node_modules", ".bin", "prisma");
-  const prismaBin = [local, root].find(existsSync);
-  const result = prismaBin
-    ? spawnSync(prismaBin, ["migrate", "deploy"], {
+  // The prisma .bin shim has a `#!/usr/bin/env node` shebang — run the CLI
+  // entry point through the current runtime so it works under Bun too.
+  const local = path.join(
+    APP_DIR,
+    "node_modules",
+    "prisma",
+    "build",
+    "index.js"
+  );
+  const root = path.join(
+    APP_DIR,
+    "..",
+    "..",
+    "node_modules",
+    "prisma",
+    "build",
+    "index.js"
+  );
+  const prismaCli = [local, root].find(existsSync);
+  const result = prismaCli
+    ? spawnSync(process.execPath, [prismaCli, "migrate", "deploy"], {
         cwd: APP_DIR,
         env: process.env,
         encoding: "utf8"
@@ -167,7 +195,14 @@ async function signToken(
   role: UserRole,
   userId = randomUUID()
 ): Promise<string> {
-  return new SignJWT({ role, user_name: "e2e-tester", jti: randomUUID() })
+  // typ: "access" — JwtVerifier distinguishes access tokens from other
+  // token types (e.g. refresh) via this claim.
+  return new SignJWT({
+    role,
+    user_name: "e2e-tester",
+    jti: randomUUID(),
+    typ: "access"
+  })
     .setProtectedHeader({ alg: "EdDSA" })
     .setSubject(userId)
     .setIssuedAt()
@@ -242,15 +277,25 @@ describe("catalog-service e2e (real postgres + kafka + redis)", () => {
   beforeAll(async () => {
     await setBaseEnv();
     runMigrations();
+    // Clean slate: earlier runs leave books/reservations behind, which would
+    // push newly created rows past the first listBooks page these tests read.
+    // RESTART IDENTITY CASCADE keeps the truncate working when a table that
+    // is NOT listed here gains an FK onto any of these (outbox has none today).
+    const prisma = new PrismaClient();
+    await prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE "reservation_items", "reservations", "books", "outbox" RESTART IDENTITY CASCADE'
+    );
+    await prisma.$disconnect();
     app = await startApp(50052);
     catalog = grpcClient("127.0.0.1:50052");
     consumer = await startConsumer(events);
   }, 90_000);
 
   afterAll(async () => {
+    await closeProxies();
     await consumer?.disconnect();
     await app?.close();
-  });
+  }, 30_000);
 
   it("CreateBook → GetBook/ListBooks/SearchBooks → catalog.book.created delivered via outbox", async () => {
     const isbn = uniqueIsbn();
@@ -447,6 +492,54 @@ describe("catalog-service e2e (real postgres + kafka + redis)", () => {
     );
   });
 
+  it("rejects price above the Decimal(10,2) bound with INVALID_ARGUMENT", async () => {
+    const admin = bearer(await signToken(UserRole.Admin));
+    await expectGrpcCode(
+      call(
+        catalog.createBook(
+          {
+            bookName: uniqueName(),
+            author: "E2E Author",
+            price: 1e15,
+            stock: 1
+          },
+          admin
+        )
+      ),
+      status.INVALID_ARGUMENT
+    );
+
+    const book = await createBook(catalog, { price: 10 });
+    await expectGrpcCode(
+      call(catalog.updateBook({ bookId: book.bookId, price: 1e15 }, admin)),
+      status.INVALID_ARGUMENT
+    );
+  });
+
+  it("rejects malformed requests at the boundary", async () => {
+    // Whether book_id arrives as "" or absent (proto3 implicit presence vs
+    // protobufjs presence encoding), the boundary DTO must reject it — this
+    // used to fall through to NOT_FOUND via the repository lookup.
+    await expectGrpcCode(
+      call(catalog.getBook({ bookId: "" })),
+      status.INVALID_ARGUMENT
+    );
+    await expectGrpcCode(
+      call(catalog.listBooks({ offset: -1, limit: 10 })),
+      status.INVALID_ARGUMENT
+    );
+    const customer = bearer(await signToken(UserRole.Customer));
+    await expectGrpcCode(
+      call(
+        catalog.reserveStock(
+          { items: [{ bookId: "book-x", amount: 0 }] },
+          customer
+        )
+      ),
+      status.INVALID_ARGUMENT
+    );
+  });
+
   it("ReserveStock → CommitStock decrements stock; repeat commit is idempotent", async () => {
     const book = await createBook(catalog, { stock: 3 });
     const customer = bearer(await signToken(UserRole.Customer));
@@ -481,6 +574,74 @@ describe("catalog-service e2e (real postgres + kafka + redis)", () => {
     );
     const after = await call(catalog.getBook({ bookId: book.bookId }));
     expect(after.book?.stock).toBe(1);
+  }, 60_000);
+
+  it("UpdateBook cannot lower stock below active reservations; CommitStock refuses to go negative", async () => {
+    const book = await createBook(catalog, { stock: 4 });
+    const admin = bearer(await signToken(UserRole.Admin));
+    const customer = bearer(await signToken(UserRole.Customer));
+
+    const reservation = await call(
+      catalog.reserveStock(
+        { items: [{ bookId: book.bookId, amount: 3 }] },
+        customer
+      )
+    );
+
+    // stock 2 < 3 reserved → FAILED_PRECONDITION; stock untouched
+    await expectGrpcCode(
+      call(catalog.updateBook({ bookId: book.bookId, stock: 2 }, admin)),
+      status.FAILED_PRECONDITION
+    );
+    const unchanged = await call(catalog.getBook({ bookId: book.bookId }));
+    expect(unchanged.book?.stock).toBe(4);
+
+    // lowering to exactly the reserved amount is allowed
+    const lowered = await call(
+      catalog.updateBook({ bookId: book.bookId, stock: 3 }, admin)
+    );
+    expect(lowered.book?.stock).toBe(3);
+
+    // stock can still drop below the reserved amount out-of-band (e.g.
+    // manual correction, another writer) — the guarded commit must refuse
+    // instead of driving books.stock negative
+    const prisma = new PrismaClient();
+    try {
+      await prisma.$executeRawUnsafe(
+        "UPDATE books SET stock = 0 WHERE id = $1",
+        book.bookId
+      );
+    } finally {
+      await prisma.$disconnect();
+    }
+
+    await expectGrpcCode(
+      call(
+        catalog.commitStock(
+          { reservationId: reservation.reservationId },
+          customer
+        )
+      ),
+      status.FAILED_PRECONDITION
+    );
+
+    // rollback was total: stock untouched, reservation still ACTIVE
+    const after = await call(catalog.getBook({ bookId: book.bookId }));
+    expect(after.book?.stock).toBe(0);
+    await call(
+      catalog.releaseStock(
+        { reservationId: reservation.reservationId },
+        customer
+      )
+    );
+  }, 60_000);
+
+  it("SearchBooks treats an empty genre string as absent", async () => {
+    const book = await createBook(catalog, { genre: "e2e-empty-genre" });
+    const res = await call(
+      catalog.searchBooks({ genre: "", offset: 0, limit: 100 })
+    );
+    expect(res.books.map((b) => b.bookId)).toContain(book.bookId);
   }, 60_000);
 
   it("ReserveStock → ReleaseStock restores availability", async () => {
@@ -595,7 +756,8 @@ describe("catalog-service e2e (real postgres + kafka + redis)", () => {
     const forged = await new SignJWT({
       role: UserRole.Admin,
       user_name: "mallory",
-      jti: randomUUID()
+      jti: randomUUID(),
+      typ: "access"
     })
       .setProtectedHeader({ alg: "EdDSA" })
       .setSubject(randomUUID())
@@ -622,8 +784,8 @@ describe("catalog-service e2e (real postgres + kafka + redis)", () => {
     // dedicated instance with a 1-second reservation TTL — the shared app
     // above keeps the default 900s so other tests are unaffected
     process.env.RESERVATION_TTL_SEC = "1";
-    const ttlApp = await startApp(50062);
-    const ttlClient = grpcClient("127.0.0.1:50062");
+    const ttlApp = await startApp(50072);
+    const ttlClient = grpcClient("127.0.0.1:50072");
     try {
       const book = await createBook(ttlClient, { stock: 2 });
       const customer = bearer(await signToken(UserRole.Customer));
@@ -655,6 +817,7 @@ describe("catalog-service e2e (real postgres + kafka + redis)", () => {
       );
     } finally {
       process.env.RESERVATION_TTL_SEC = "900";
+      await closeProxies();
       await ttlApp.close();
     }
   }, 90_000);
@@ -665,8 +828,8 @@ describe("outbox relay survives broker outage", () => {
     // Service instance pointed at an unreachable broker must still boot and
     // serve RPCs — the outbox row persists, delivery happens later.
     process.env.KAFKA_BROKERS = "localhost:1";
-    const deadBrokerApp = await startApp(50063);
-    const deadClient = grpcClient("127.0.0.1:50063");
+    const deadBrokerApp = await startApp(50073);
+    const deadClient = grpcClient("127.0.0.1:50073");
 
     const isbn = uniqueIsbn();
     const created = await call(
@@ -682,12 +845,13 @@ describe("outbox relay survives broker outage", () => {
       )
     );
     const bookId = created.book!.bookId;
+    await closeProxies();
     await deadBrokerApp.close();
 
     // "Broker comes back": a fresh instance with working brokers picks the
     // unpublished outbox row up (shared catalog_db) and relays it.
     process.env.KAFKA_BROKERS = "localhost:29092";
-    const recoveredApp = await startApp(50064);
+    const recoveredApp = await startApp(50074);
     const events: CollectedEvent[] = [];
     const consumer = await startConsumer(events);
     try {

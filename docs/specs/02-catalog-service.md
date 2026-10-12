@@ -162,7 +162,7 @@ ACTIVE-резервы лениво игнорируются по `expires_at`; �
 | `GRPC_PORT`           | порт gRPC-сервера             | `50052`                                                 |
 | `DATABASE_URL`        | строка подключения Prisma     | `postgresql://catalog_user:catalog_pass@localhost:5432/catalog_db` |
 | `KAFKA_BROKERS`       | brokers через запятую         | `localhost:29092`                                       |
-| `JWT_PUBLIC_KEY`      | PEM публичного ключа, base64  | `<base64>`                                              |
+| `JWT_PUBLIC_KEY`      | PEM публичного ключа, base64 (или `JWT_PUBLIC_KEY_FILE` — путь к файлу; файл имеет приоритет) | `<base64>` |
 | `REDIS_URL`           | Redis (denylist, только чтение) | `redis://localhost:6379`                              |
 | `RESERVATION_TTL_SEC` | TTL резерва                   | `900`                                                   |
 | `RESERVATION_SWEEP_INTERVAL_SEC` | интервал sweeper'а просроченных резервов | `60`                       |

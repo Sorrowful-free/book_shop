@@ -65,11 +65,26 @@ class InMemoryAuthRepository implements AuthRepository {
     });
   }
 
-  async revokeRefreshToken(jti: string, revokedAt: Date): Promise<void> {
+  // mirrors the prisma adapter's atomic `WHERE revoked_at IS NULL` update
+  async revokeRefreshToken(jti: string, revokedAt: Date): Promise<number> {
     const row = this.refreshTokens.get(jti);
-    if (row) {
-      row.revokedAt = revokedAt;
+    if (!row || row.revokedAt !== null) {
+      return 0;
     }
+    row.revokedAt = revokedAt;
+    return 1;
+  }
+
+  // mirrors the prisma adapter's `expires_at < cutoff` deleteMany (F-A1)
+  async deleteExpiredRefreshTokens(cutoff: Date): Promise<number> {
+    let count = 0;
+    for (const [jti, row] of this.refreshTokens) {
+      if (row.expiresAt < cutoff) {
+        this.refreshTokens.delete(jti);
+        count++;
+      }
+    }
+    return count;
   }
 }
 
@@ -260,6 +275,38 @@ describe("AuthService.refresh — jti rotation", () => {
     );
   });
 
+  it("lets only one of two concurrent refreshes succeed (atomic rotation)", async () => {
+    const { service } = await harness();
+    const first = await service.register({
+      userName: USERNAME,
+      password: PASSWORD
+    });
+
+    const results = await Promise.allSettled([
+      service.refresh({ refreshToken: first.refreshToken }),
+      service.refresh({ refreshToken: first.refreshToken })
+    ]);
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r) => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(grpcCode((rejected[0] as PromiseRejectedResult).reason)).toBe(
+      status.UNAUTHENTICATED
+    );
+  });
+
+  it("rejects an access token presented to the Refresh RPC (typ claim)", async () => {
+    const { service } = await harness();
+    const pair = await service.register({
+      userName: USERNAME,
+      password: PASSWORD
+    });
+    await expectGrpcError(
+      service.refresh({ refreshToken: pair.accessToken }),
+      status.UNAUTHENTICATED
+    );
+  });
+
   it("rejects a forged refresh token signature", async () => {
     const { service } = await harness();
     const other = await harness();
@@ -370,6 +417,21 @@ describe("AuthService.revokeToken", () => {
     );
   }, 10_000);
 
+  it("rejects a refresh token passed as the access_token parameter", async () => {
+    const { service } = await harness();
+    const pair = await service.register({
+      userName: USERNAME,
+      password: PASSWORD
+    });
+    await expectGrpcError(
+      service.revokeToken({
+        refreshToken: pair.refreshToken,
+        accessToken: pair.refreshToken
+      }),
+      status.UNAUTHENTICATED
+    );
+  });
+
   it("rejects a forged access token", async () => {
     const { service } = await harness();
     const other = await harness();
@@ -425,6 +487,18 @@ describe("AuthService.validateToken", () => {
       (await service.validateToken({ accessToken: pair.accessToken })).valid
     ).toBe(false);
   }, 10_000);
+
+  it("returns valid=false when a refresh token is used as a bearer token", async () => {
+    const { service } = await harness();
+    const pair = await service.register({
+      userName: USERNAME,
+      password: PASSWORD
+    });
+    // typ="refresh" → JwtVerifier rejects it as an access token
+    expect(
+      (await service.validateToken({ accessToken: pair.refreshToken })).valid
+    ).toBe(false);
+  });
 
   it("returns valid=false for a revoked access token (denylist)", async () => {
     const { service } = await harness();

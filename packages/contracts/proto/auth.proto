@@ -72,7 +72,8 @@ message GetUserRequest {
   string user_id = 1;
 }
 
-// Access JWT payload mirrors: sub = user_id, user_name, role, jti (uuid).
+// Access JWT payload mirrors: sub = user_id, user_name, role, jti (uuid),
+// typ ("access" | "refresh" — strictly enforced by JwtVerifier/TokenService).
 message AuthTokens {
   string access_token = 1;
   string refresh_token = 2;

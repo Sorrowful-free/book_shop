@@ -69,6 +69,9 @@ bun test                   # all tests (bun test, colocated *.spec.ts + test/)
 bun run lint               # eslint
 bun run typecheck          # tsc --noEmit per workspace
 bun run proto:lint         # buf lint packages/contracts (needs buf CLI)
+bun run db:generate        # prisma generate for every DB-backed service
+                           # (per-service output in src/generated/prisma —
+                           #  required before typecheck/tests)
 ```
 
 ## Conventions

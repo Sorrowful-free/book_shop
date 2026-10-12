@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { exportPKCS8, exportSPKI, generateKeyPair, jwtVerify } from "jose";
+import {
+  exportPKCS8,
+  exportSPKI,
+  generateKeyPair,
+  importPKCS8,
+  jwtVerify,
+  SignJWT
+} from "jose";
 import { UserRole } from "@book-shop/contracts";
 import { TokenService } from "./tokens";
 
@@ -43,6 +50,8 @@ describe("TokenService — EdDSA (Ed25519) JWT issuing/verification", () => {
     expect(payload.sub).toBe(USER.id);
     expect(payload.user_name).toBe(USER.userName);
     expect(payload.role).toBe(UserRole.Customer);
+    // typ separates access from refresh — JwtVerifier requires "access"
+    expect(payload.typ).toBe("access");
     // jti is a uuid — required for the Redis denylist on revoke
     expect(payload.jti).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -73,6 +82,56 @@ describe("TokenService — EdDSA (Ed25519) JWT issuing/verification", () => {
     expect(claims).not.toBeNull();
     expect(claims?.sub).toBe(USER.id);
     expect(claims?.jti).toBe(pair.refreshJti);
+    expect(claims?.typ).toBe("refresh");
+  });
+
+  it("rejects tokens of the wrong type on each verify path", async () => {
+    const keys = await makeKeys();
+    const tokens = new TokenService({
+      privateKey: keys.privateKeyB64,
+      accessTtlSec: 3600,
+      refreshTtlSec: 86400
+    });
+    const pair = await tokens.issueTokenPair(USER);
+
+    // an access token must not pass as a refresh token …
+    expect(await tokens.verifyRefreshToken(pair.accessToken)).toBeNull();
+    // … and a refresh token must not be accepted as an access token
+    expect(
+      await tokens.verifyAccessSignatureOnly(pair.refreshToken)
+    ).toBeNull();
+  });
+
+  it("verifyRefreshToken rejects a validly-signed token without typ", async () => {
+    const keys = await makeKeys();
+    const tokens = new TokenService({
+      privateKey: keys.privateKeyB64,
+      accessTtlSec: 3600,
+      refreshTtlSec: 86400
+    });
+    // legacy shape: all claims except typ — must not pass either verify
+    const legacy = await new SignJWT({
+      user_name: USER.userName,
+      role: USER.role
+    })
+      .setProtectedHeader({ alg: "EdDSA" })
+      .setSubject(USER.id)
+      .setJti("jti-no-typ")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(await importPKCS8(keys.privateKeyPem, "EdDSA"));
+
+    expect(await tokens.verifyRefreshToken(legacy)).toBeNull();
+    expect(await tokens.verifyAccessSignatureOnly(legacy)).toBeNull();
+  });
+
+  it("onModuleInit rejects a malformed private key (fail fast)", async () => {
+    const tokens = new TokenService({
+      privateKey: Buffer.from("not-a-pem-key", "utf8").toString("base64"),
+      accessTtlSec: 3600,
+      refreshTtlSec: 86400
+    });
+    await expect(tokens.onModuleInit()).rejects.toThrow();
   });
 
   it("verifyRefreshToken returns null for garbage and forged signatures", async () => {

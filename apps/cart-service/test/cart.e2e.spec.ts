@@ -36,7 +36,9 @@ type CartClient = cartProto.CartServiceClient;
 let jwtSigningKey: CryptoKey;
 
 async function signToken(userId: string, jti = randomUUID()): Promise<string> {
-  return new SignJWT({ user_name: "e2e_user", role: "CUSTOMER" })
+  // `typ: "access"` — JwtVerifier only accepts access tokens (refresh tokens
+  // carry a different typ and must be rejected by the gRPC surface).
+  return new SignJWT({ user_name: "e2e_user", role: "CUSTOMER", typ: "access" })
     .setProtectedHeader({ alg: "EdDSA" })
     .setSubject(userId)
     .setJti(jti)
@@ -45,8 +47,11 @@ async function signToken(userId: string, jti = randomUUID()): Promise<string> {
     .sign(jwtSigningKey);
 }
 
-function grpcClient(url: string): CartClient {
-  const client = ClientProxyFactory.create({
+function grpcClient(url: string): {
+  proxy: { close(): unknown };
+  svc: CartClient;
+} {
+  const proxy = ClientProxyFactory.create({
     transport: Transport.GRPC,
     options: {
       package: GRPC_PACKAGE,
@@ -54,8 +59,13 @@ function grpcClient(url: string): CartClient {
       url,
       loader: { keepCase: false, longs: Number, defaults: true }
     }
-  }) as ClientGrpc;
-  return client.getService<CartClient>(cartProto.CART_SERVICE_NAME);
+  });
+  return {
+    proxy,
+    svc: (proxy as unknown as ClientGrpc).getService<CartClient>(
+      cartProto.CART_SERVICE_NAME
+    )
+  };
 }
 
 function call<T>(observable: Observable<T>): Promise<T> {
@@ -151,13 +161,14 @@ async function setBaseEnv(cartTtlSec: string): Promise<void> {
 describe("cart-service e2e (real redis + kafka)", () => {
   let app: INestApplication;
   let cart: CartClient;
+  let proxy: { close(): unknown };
   let redis: Redis;
   let producer: Producer;
 
   beforeAll(async () => {
     await setBaseEnv("3600");
     app = await startApp(50053);
-    cart = grpcClient("127.0.0.1:50053");
+    ({ proxy, svc: cart } = grpcClient("127.0.0.1:50053"));
     redis = new Redis(REDIS_URL);
     const kafka = new Kafka({ clientId: "cart-e2e", brokers: [KAFKA_BROKERS] });
     producer = kafka.producer();
@@ -165,10 +176,12 @@ describe("cart-service e2e (real redis + kafka)", () => {
   }, 60_000);
 
   afterAll(async () => {
+    // Client channels keep the gRPC server from shutting down — close first.
+    await proxy?.close();
     await producer?.disconnect();
     redis?.disconnect();
     await app?.close();
-  });
+  }, 30_000);
 
   it("guest lifecycle: create → get → add → sum → update → remove → clear", async () => {
     const { cartId } = await call(cart.createCart({}));
@@ -223,6 +236,15 @@ describe("cart-service e2e (real redis + kafka)", () => {
       call(cart.getCart({ cartId: "not-a-uuid" })),
       status.INVALID_ARGUMENT
     );
+    // a present-but-empty cart_id is INVALID_ARGUMENT, not UNAUTHENTICATED
+    await expectGrpcCode(
+      call(cart.getCart({ cartId: "" })),
+      status.INVALID_ARGUMENT
+    );
+    await expectGrpcCode(
+      call(cart.addItem({ cartId: "", bookId: "b", amount: 1 })),
+      status.INVALID_ARGUMENT
+    );
     await expectGrpcCode(
       call(cart.addItem({ cartId, bookId: "b", amount: 0 })),
       status.INVALID_ARGUMENT
@@ -231,6 +253,13 @@ describe("cart-service e2e (real redis + kafka)", () => {
       call(cart.updateItem({ cartId, bookId: "b", amount: -1 })),
       status.INVALID_ARGUMENT
     );
+  });
+
+  it("an uppercased cart_id addresses the same guest cart", async () => {
+    const { cartId } = await call(cart.createCart({}));
+    await call(cart.addItem({ cartId, bookId: "book-1", amount: 2 }));
+    const c = await call(cart.getCart({ cartId: cartId.toUpperCase() }));
+    expect(c.items).toEqual([{ bookId: "book-1", amount: 2 }]);
   });
 
   it("user cart is addressed by JWT sub and isolated from guest carts", async () => {
@@ -296,6 +325,24 @@ describe("cart-service e2e (real redis + kafka)", () => {
     expect(again.items).toHaveLength(2);
   });
 
+  it("mergeCart deletes an existing-but-corrupt guest cart", async () => {
+    const userId = `merge-corrupt-${randomUUID()}`;
+    const token = await signToken(userId);
+    const cartId = randomUUID();
+    // a guest key that exists but whose payload no longer parses (e.g. a
+    // document written by an older version)
+    await redis.set(`cart:guest:${cartId}`, "not-json{{{");
+    await call(cart.addItem({ bookId: "book-1", amount: 1 }, bearer(token)));
+
+    const merged = await call(
+      cart.mergeCart({ guestCartId: cartId }, bearer(token))
+    );
+    // corrupt payload contributes 0 items — the user cart is unchanged…
+    expect(merged.items).toEqual([{ bookId: "book-1", amount: 1 }]);
+    // …but the guest key is consumed by the merge transaction (direct GET)
+    expect(await redis.get(`cart:guest:${cartId}`)).toBeNull();
+  });
+
   it("mergeCart requires a JWT — guest_cart_id is not an owner selector", async () => {
     const { cartId } = await call(cart.createCart({}));
     await call(cart.addItem({ cartId, bookId: "book-1", amount: 1 }));
@@ -344,17 +391,19 @@ describe("cart-service e2e (real redis + kafka)", () => {
 describe("cart TTL (CART_TTL_SEC=1)", () => {
   let app: INestApplication;
   let cart: CartClient;
+  let proxy: { close(): unknown };
 
   beforeAll(async () => {
     process.env.CART_TTL_SEC = "1";
-    app = await startApp(50063);
-    cart = grpcClient("127.0.0.1:50063");
+    app = await startApp(50083);
+    ({ proxy, svc: cart } = grpcClient("127.0.0.1:50083"));
   }, 60_000);
 
   afterAll(async () => {
     process.env.CART_TTL_SEC = "3600";
+    await proxy?.close();
     await app?.close();
-  });
+  }, 30_000);
 
   it("the cart expires after CART_TTL_SEC without access", async () => {
     const { cartId } = await call(cart.createCart({}));

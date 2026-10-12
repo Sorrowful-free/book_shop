@@ -19,6 +19,7 @@ module.exports = {
     '.nuxt',
     '.output',
     'coverage',
+    '**/src/generated/**',
   ],
   rules: {
     '@typescript-eslint/explicit-function-return-type': 'off',

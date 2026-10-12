@@ -2,6 +2,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Per-service output: bun workspaces share a single @prisma/client install,
+  // so the default node_modules output would clobber the other services.
+  output   = "../src/generated/prisma"
 }
 
 datasource db {

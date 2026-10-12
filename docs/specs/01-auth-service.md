@@ -108,6 +108,8 @@ Seed: только `admin` (роль ADMIN). Креды берутся из env
 
 Defense in depth: сервис сам верифицирует JWT из metadata `authorization`
 публичным ключом EdDSA + denylist (`JwtVerifier` из `@book-shop/common`).
+Bearer-токен обязан иметь claim `typ="access"` — токены без `typ` или с
+`typ="refresh"` отклоняются при верификации.
 
 - Register/Login/Refresh/RevokeToken/ValidateToken — публичные (токен не нужен).
 - GetUser — требует валидный JWT; свой профиль — любая роль, чужой — ADMIN
@@ -126,13 +128,16 @@ Defense in depth: сервис сам верифицирует JWT из metadata
 | `JWT_PUBLIC_KEY`         | PEM публичного ключа, base64        | `<base64>`                              |
 | `JWT_ACCESS_TTL_SEC`     | TTL access-token                    | `28800`                                 |
 | `JWT_REFRESH_TTL_SEC`    | TTL refresh-token                   | `2592000`                               |
+| `REFRESH_TOKEN_AUDIT_TTL_SEC` | audit-retention удалённых GC refresh-строк (сек) | `604800` |
+| `REFRESH_TOKEN_SWEEP_INTERVAL_SEC` | интервал GC-свипа (сек) | `3600`                    |
 | `SEED_ADMIN_USER_NAME`   | логин seed-админа                   | `admin`                                 |
 | `SEED_ADMIN_PASSWORD`    | пароль seed-админа                  | `admin`                                 |
 
-Ключи — **через env** (PEM в base64, без файлов), чтобы при деплое всё
-инжектилось сверху (secrets/CI). Скрипт `gen-keys` (jose, Ed25519) печатает
-готовые base64-строки для `.env`; публичный ключ читают также gateway и
-остальные сервисы (верификация).
+Ключи — **через env** (PEM в base64) или через файл — `JWT_PRIVATE_KEY_FILE` /
+`JWT_PUBLIC_KEY_FILE` (docker-secrets convention; файл имеет приоритет при
+заданных обоих) — чтобы при деплое всё инжектилось сверху (secrets/CI).
+Скрипт `gen-keys` (jose, Ed25519) печатает готовые base64-строки для `.env`;
+публичный ключ читают также gateway и остальные сервисы (верификация).
 
 ## 8. Модель ошибок
 
@@ -154,7 +159,11 @@ Defense in depth: сервис сам верифицирует JWT из metadata
 - Register с существующим user_name → ALREADY_EXISTS
 - Login с верной парой → AuthTokens; неверный пароль/несуществующий user → UNAUTHENTICATED
 - Access-token подписан EdDSA, payload: `sub=userId`, `user_name`, `role`,
-  `jti` (uuid — нужен для denylist-отзыва)
+  `jti` (uuid — нужен для denylist-отзыва), `typ="access"`. Refresh-token
+  несёт те же claim'ы, но с `typ="refresh"`. Разделение типов строгое:
+  `JwtVerifier` принимает только `typ="access"` (refresh не работает как
+  bearer access и не покрывается denylist — поэтому тип обязателен),
+  Refresh/RevokeToken — только `typ="refresh"`
 - Refresh с валидным токеном → новая пара, старый jti помечен revoked;
   повторное использование старого → UNAUTHENTICATED (rotation)
 - Refresh c отозванным/просроченным/невалидной подписью → UNAUTHENTICATED
