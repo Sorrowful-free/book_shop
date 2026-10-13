@@ -454,7 +454,11 @@ export class PrismaCatalogRepository implements CatalogRepository {
     }
   }
 
-  /** Marks the reservation RELEASED (availability is freed implicitly). */
+  /**
+   * Marks the reservation RELEASED (availability is freed implicitly).
+   * Terminal states (COMMITTED/RELEASED) report which one was observed
+   * under the row lock — see ReleaseResult.
+   */
   async releaseReservation(id: string, now: Date): Promise<ReleaseResult> {
     return this.prisma.$transaction(async (tx): Promise<ReleaseResult> => {
       const rows = await tx.$queryRaw<ReservationRow[]>(Prisma.sql`
@@ -464,25 +468,25 @@ export class PrismaCatalogRepository implements CatalogRepository {
         FOR UPDATE`);
       const reservation = rows[0];
       if (!reservation) {
-        return "not_found";
+        return { state: "not_found" };
       }
       if (
         reservation.status === "COMMITTED" ||
         reservation.status === "RELEASED"
       ) {
-        return "invalid_state";
+        return { state: "invalid_state", observed: reservation.status };
       }
       if (
         reservation.status !== "ACTIVE" ||
         reservation.expiresAt.getTime() <= now.getTime()
       ) {
-        return "not_found";
+        return { state: "not_found" };
       }
       await tx.reservation.update({
         where: { id },
         data: { status: "RELEASED" }
       });
-      return "released";
+      return { state: "released" };
     });
   }
 

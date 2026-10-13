@@ -101,10 +101,16 @@ export type CommitResult =
 
 /**
  * ReleaseStock: only a live ACTIVE reservation can be released.
- * `invalid_state` covers COMMITTED and already-RELEASED → FAILED_PRECONDITION;
- * missing/expired reservations return `not_found`.
+ * `invalid_state` means the reservation is already terminal — `observed`
+ * reports which status the repository saw (COMMITTED vs RELEASED) so the
+ * service can surface it in error details (fixes F-C4: order-service
+ * distinguishes "already paid" from "already released"). Missing/expired
+ * reservations return `not_found`.
  */
-export type ReleaseResult = "released" | "invalid_state" | "not_found";
+export type ReleaseResult =
+  | { state: "released" }
+  | { state: "invalid_state"; observed: "COMMITTED" | "RELEASED" }
+  | { state: "not_found" };
 
 /**
  * RestoreBook outcomes: `not_found` when no such book exists, `not_deleted`
@@ -188,6 +194,9 @@ export interface CatalogRepository {
   ): Promise<ReserveResult>;
   /** Decrements stock and marks the reservation COMMITTED; idempotent. */
   commitReservation(id: string, now: Date): Promise<CommitResult>;
-  /** Marks the reservation RELEASED (availability is freed implicitly). */
+  /**
+   * Marks the reservation RELEASED (availability is freed implicitly);
+   * see ReleaseResult for the failure variants.
+   */
   releaseReservation(id: string, now: Date): Promise<ReleaseResult>;
 }

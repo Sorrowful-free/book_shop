@@ -278,7 +278,7 @@ describe("ReleaseStock", () => {
     );
   });
 
-  it("rejects a COMMITTED reservation with FAILED_PRECONDITION", async () => {
+  it("rejects a COMMITTED reservation with FAILED_PRECONDITION + reservationStatus detail", async () => {
     const { service, repository } = harness();
     const book = seedBook(repository, { stock: 5 });
     const res = await service.reserveStock(
@@ -287,13 +287,17 @@ describe("ReleaseStock", () => {
     );
     await service.commitStock({ reservationId: res.reservationId }, CALLER);
 
-    await expectGrpcError(
-      service.releaseStock({ reservationId: res.reservationId }, CALLER),
-      status.FAILED_PRECONDITION
+    const error = await catchGrpcError(
+      service.releaseStock({ reservationId: res.reservationId }, CALLER)
     );
+    expect((error as { code?: number }).code).toBe(status.FAILED_PRECONDITION);
+    // F-C4: order-service distinguishes "already paid" from "already
+    // released" via details.reservationStatus — same details mechanism as
+    // unavailableBookIds in ReserveStock
+    expect(errorDetails(error)?.reservationStatus).toBe("COMMITTED");
   });
 
-  it("rejects an already-RELEASED reservation with FAILED_PRECONDITION", async () => {
+  it("rejects an already-RELEASED reservation with FAILED_PRECONDITION + reservationStatus detail", async () => {
     const { service, repository } = harness();
     const book = seedBook(repository, { stock: 5 });
     const res = await service.reserveStock(
@@ -302,9 +306,13 @@ describe("ReleaseStock", () => {
     );
     await service.releaseStock({ reservationId: res.reservationId }, CALLER);
 
-    await expectGrpcError(
-      service.releaseStock({ reservationId: res.reservationId }, CALLER),
-      status.FAILED_PRECONDITION
+    const error = await catchGrpcError(
+      service.releaseStock({ reservationId: res.reservationId }, CALLER)
     );
+    expect((error as { code?: number }).code).toBe(status.FAILED_PRECONDITION);
+    expect(errorDetails(error)?.reservationStatus).toBe("RELEASED");
+    // the { code, message, details } payload is JSON-serialized into the
+    // wire status — reservationStatus must survive that round-trip
+    expect(errorMentions(error, '"reservationStatus":"RELEASED"')).toBe(true);
   });
 });

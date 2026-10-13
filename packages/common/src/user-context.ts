@@ -12,6 +12,18 @@ export const GRPC_METADATA_KEYS = {
   traceId: "x-trace-id"
 } as const;
 
+/**
+ * Trailing-metadata key carrying `JSON.stringify(details)` for structured
+ * gRPC error details. grpc-js only forwards `code`, the `details` message
+ * string and trailing metadata — a `details` OBJECT inside an RpcException
+ * payload never reaches the wire (serverErrorToStatus reads `error.details`
+ * only when it is a string). Emitters duplicate their payload `details`
+ * into this trailer; readers parse it back. Wire contract shared by
+ * catalog (unavailableBookIds/missingBookIds/reservationStatus) and
+ * order-service (F-O4 pass-through).
+ */
+export const ERROR_DETAILS_METADATA_KEY = "error-details";
+
 export function authorizationToMetadata(token: string): Record<string, string> {
   return { [GRPC_METADATA_KEYS.authorization]: token };
 }

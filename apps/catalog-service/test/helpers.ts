@@ -285,22 +285,22 @@ export class InMemoryCatalogRepository implements CatalogRepository {
   async releaseReservation(id: string, now: Date): Promise<ReleaseResult> {
     const reservation = this.reservations.get(id);
     if (!reservation) {
-      return "not_found";
+      return { state: "not_found" };
     }
     if (
       reservation.status === "COMMITTED" ||
       reservation.status === "RELEASED"
     ) {
-      return "invalid_state";
+      return { state: "invalid_state", observed: reservation.status };
     }
     if (
       reservation.status !== "ACTIVE" ||
       reservation.expiresAt.getTime() <= now.getTime()
     ) {
-      return "not_found";
+      return { state: "not_found" };
     }
     reservation.status = "RELEASED";
-    return "released";
+    return { state: "released" };
   }
 }
 

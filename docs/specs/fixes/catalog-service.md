@@ -99,3 +99,39 @@ limit; offset без верхней границы, но OFFSET в SQL безо�
 
 - Полный перенос доменной валидации в DTO; валидация внутренних RPC-схем
   вне контроллера.
+
+## F-C4. `ReleaseStock`: финальный статус резерва в details ошибки
+
+### Проблема
+
+`releaseReservation` возвращает `invalid_state` и для `COMMITTED`, и для
+`RELEASED` — оба мапятся в одинаковый `FAILED_PRECONDITION` без details.
+Вызывающая сторона (order-service, fix F-O2) не может отличить «резерв
+погашен» (заказ фактически оплачен → self-heal в PAID) от «резерв уже
+отменён» (→ CANCELLED). Контракт proto менять не нужно — details в ошибке
+достаточно, консистентно с `{unavailableBookIds}` в `ReserveStock`.
+
+### Ожидаемое поведение
+
+- `ReleaseStock` на резерве в терминальном состоянии → `FAILED_PRECONDITION`
+  с `details.reservationStatus`: `"COMMITTED"` или `"RELEASED"` — фактическое
+  наблюдаемое состояние.
+- `ReleaseResult` репозитория расширяется так, чтобы донести наблюдаемый
+  статус до сервиса (форма — на усмотрение исполнителя: возврат объекта,
+  расширение union и т.п.).
+- `NOT_FOUND` (нет строки / истёкший / EXPIRED) — без изменений, details не
+  требуются.
+- Обратная совместимость: caller'ы без чтения details видят прежний
+  `FAILED_PRECONDITION`; proto не меняется.
+
+### Acceptance criteria
+
+- Unit: release по COMMITTED-резерву → `FAILED_PRECONDITION`, details
+  содержат `reservationStatus: "COMMITTED"`; по RELEASED → `"RELEASED"`.
+- e2e или unit на уровне контроллера: details доезжают по проводу
+  (сериализация `rpcError` не теряет объект details).
+
+### Out of scope
+
+- `reservationStatus` в других RPC/ошибках; `GetReservation` RPC; успешный
+  ответ с финальным статусом (семантика ошибок сохраняется).

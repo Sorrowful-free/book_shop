@@ -10,9 +10,12 @@
 // gRPC controller (JwtVerifier + RedisTokenDenylist from @book-shop/common).
 
 import { Injectable } from "@nestjs/common";
-import { status } from "@grpc/grpc-js";
+import { Metadata, status } from "@grpc/grpc-js";
 import { RpcException } from "@nestjs/microservices";
-import type { UserContext } from "@book-shop/common";
+import {
+  ERROR_DETAILS_METADATA_KEY,
+  type UserContext
+} from "@book-shop/common";
 import {
   EVENT_TYPES,
   UserRole,
@@ -82,13 +85,20 @@ function rpcError(
 ): RpcException {
   // Expose the grpc status on the exception itself too — some tests (and
   // grpc-js error mapping) read `error.code` directly, others read the
-  // RpcException payload via `getError().code`. `details` stays inside the
-  // payload (machine-readable extra data, e.g. failing book ids) — the
-  // top-level grpc-js `details` slot is the human-readable message string.
-  return Object.assign(
-    new RpcException({ code, message, ...(details ? { details } : {}) }),
-    { code }
-  );
+  // RpcException payload via `getError().code`. The top-level grpc-js
+  // `details` slot stays the human-readable message string.
+  const payload: Record<string, unknown> = { code, message };
+  if (details) {
+    // Machine-readable extra data (failing book ids, reservationStatus):
+    // inside the payload for in-process readers AND duplicated into the
+    // `error-details` trailer — the only channel that survives
+    // serverErrorToStatus on the wire (F-C4/F-O4 interop).
+    payload.details = details;
+    const trailers = new Metadata();
+    trailers.set(ERROR_DETAILS_METADATA_KEY, JSON.stringify(details));
+    payload.metadata = trailers;
+  }
+  return Object.assign(new RpcException(payload), { code });
 }
 
 function toTimestamp(date: Date): Timestamp {
@@ -415,7 +425,8 @@ export class CatalogService {
 
   /**
    * NOT_FOUND for missing/expired reservations; FAILED_PRECONDITION for
-   * COMMITTED or already-RELEASED ones.
+   * COMMITTED or already-RELEASED ones, with the observed terminal status
+   * in error details (fixes F-C4).
    */
   async releaseStock(
     request: ReleaseStockRequest,
@@ -426,16 +437,20 @@ export class CatalogService {
       request.reservationId,
       this.now()
     );
-    if (result === "not_found") {
+    if (result.state === "not_found") {
       throw rpcError(
         status.NOT_FOUND,
         `reservation ${request.reservationId} not found or expired`
       );
     }
-    if (result === "invalid_state") {
+    if (result.state === "invalid_state") {
+      // F-C4: "already paid" (COMMITTED) and "already compensated"
+      // (RELEASED) need different reactions downstream — the observed
+      // status rides in details like unavailableBookIds in reserveStock
       throw rpcError(
         status.FAILED_PRECONDITION,
-        `reservation ${request.reservationId} cannot be released`
+        `reservation ${request.reservationId} cannot be released`,
+        { reservationStatus: result.observed }
       );
     }
     return {};
