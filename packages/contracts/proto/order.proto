@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package bookshop.order.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Orders: checkout saga over cart+catalog, order history with item
+// snapshots, payment emulation, cancellation.
+// See docs/specs/04-order-service.md and docs/specs/fixes/order-service.md.
+service OrderService {
+  // Runs the checkout saga for the caller's USER cart (JWT `sub`):
+  // cart.GetCart → catalog snapshot → catalog.ReserveStock → persist PENDING
+  // + outbox order.created. Idempotent on `idempotency_key` (per user):
+  // a repeat returns the existing order without a new saga.
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT (bad key), FAILED_PRECONDITION
+  // (empty cart / unavailable positions, details passthrough), NOT_FOUND
+  // (unknown book), UNAVAILABLE (cart/catalog unreachable).
+  rpc Checkout(CheckoutRequest) returns (Order);
+  // Own order or ADMIN/EMPLOYER.
+  // Errors: UNAUTHENTICATED, NOT_FOUND, PERMISSION_DENIED.
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  // Caller's orders, newest first (created_at DESC, id DESC).
+  // Errors: UNAUTHENTICATED, INVALID_ARGUMENT (limit outside 1-100).
+  rpc ListMyOrders(ListMyOrdersRequest) returns (ListMyOrdersResponse);
+  // Payment emulation: PENDING → CommitStock → PAID + order.paid.
+  // Idempotent on an already-PAID order (returns it); expired reservation
+  // or uncommittable stock → order CANCELLED + order.cancelled and the
+  // caller gets FAILED_PRECONDITION. CANCELLED order → FAILED_PRECONDITION.
+  // Errors: UNAUTHENTICATED, NOT_FOUND, PERMISSION_DENIED,
+  // FAILED_PRECONDITION, UNAVAILABLE.
+  rpc PayOrder(PayOrderRequest) returns (Order);
+  // PENDING → ReleaseStock → CANCELLED + order.cancelled. A released or
+  // expired reservation still yields CANCELLED; a COMMITTED reservation
+  // self-heals the order to PAID + order.paid (fixes/order-service F-O2).
+  // PAID/CANCELLED → FAILED_PRECONDITION.
+  // Errors: UNAUTHENTICATED, NOT_FOUND, PERMISSION_DENIED,
+  // FAILED_PRECONDITION, UNAVAILABLE.
+  rpc CancelOrder(CancelOrderRequest) returns (Order);
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_PAID = 2;
+  ORDER_STATUS_CANCELLED = 3;
+}
+
+message Order {
+  string order_id = 1;
+  string user_id = 2;
+  // Snapshot of the purchased positions at checkout time (name/author/price
+  // frozen; later catalog changes do not affect the record). Deterministic
+  // order: book_id ASC.
+  repeated OrderItem items = 3;
+  // Decimal(10,2) in storage, double on the wire.
+  double total_price = 4;
+  OrderStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+  optional google.protobuf.Timestamp paid_at = 7;
+  optional google.protobuf.Timestamp cancelled_at = 8;
+}
+
+message OrderItem {
+  string book_id = 1;
+  string book_name = 2;
+  string author = 3;
+  double price = 4;
+  int32 amount = 5;
+}
+
+message CheckoutRequest {
+  // Required uuid; produced by the api-gateway (Idempotency-Key header or
+  // generated). Unique per (user_id, key).
+  string idempotency_key = 1;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message ListMyOrdersRequest {
+  int32 offset = 1;
+  int32 limit = 2;
+}
+
+message ListMyOrdersResponse {
+  repeated Order orders = 1;
+  int64 total = 2;
+}
+
+message PayOrderRequest {
+  string order_id = 1;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+}

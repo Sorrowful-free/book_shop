@@ -19,7 +19,7 @@
     "format": "prettier --write \"{apps,packages}/**/*.{ts,tsx,json,md,yml}\"",
     "proto:lint": "buf lint packages/contracts",
     "proto:gen": "bun --filter '@book-shop/contracts' proto:gen",
-    "db:generate": "bun --filter '@book-shop/auth-service' db:generate && bun --filter '@book-shop/catalog-service' db:generate",
+    "db:generate": "bun --filter '@book-shop/auth-service' db:generate && bun --filter '@book-shop/catalog-service' db:generate && bun --filter '@book-shop/order-service' db:generate",
     "typecheck": "bun --filter '*' typecheck"
   },
   "devDependencies": {

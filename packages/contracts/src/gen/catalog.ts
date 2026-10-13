@@ -5,7 +5,8 @@
 // source: catalog.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import type { handleUnaryCall, Metadata, UntypedServiceImplementation } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "./google/protobuf/timestamp";
@@ -149,6 +150,1495 @@ export interface ReleaseStockResponse {
 }
 
 export const BOOKSHOP_CATALOG_V1_PACKAGE_NAME = "bookshop.catalog.v1";
+
+function createBaseBook(): Book {
+  return { bookId: "", bookName: "", author: "", price: 0, stock: 0, available: 0, isDeleted: false };
+}
+
+export const Book: MessageFns<Book> = {
+  encode(message: Book, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    if (message.bookName !== "") {
+      writer.uint32(18).string(message.bookName);
+    }
+    if (message.author !== "") {
+      writer.uint32(26).string(message.author);
+    }
+    if (message.isbn !== undefined) {
+      writer.uint32(34).string(message.isbn);
+    }
+    if (message.description !== undefined) {
+      writer.uint32(42).string(message.description);
+    }
+    if (message.genre !== undefined) {
+      writer.uint32(50).string(message.genre);
+    }
+    if (message.year !== undefined) {
+      writer.uint32(56).int32(message.year);
+    }
+    if (message.coverUrl !== undefined) {
+      writer.uint32(66).string(message.coverUrl);
+    }
+    if (message.price !== 0) {
+      writer.uint32(73).double(message.price);
+    }
+    if (message.stock !== 0) {
+      writer.uint32(80).int32(message.stock);
+    }
+    if (message.available !== 0) {
+      writer.uint32(88).int32(message.available);
+    }
+    if (message.isDeleted !== false) {
+      writer.uint32(96).bool(message.isDeleted);
+    }
+    if (message.createdAt !== undefined) {
+      Timestamp.encode(message.createdAt, writer.uint32(106).fork()).join();
+    }
+    if (message.updatedAt !== undefined) {
+      Timestamp.encode(message.updatedAt, writer.uint32(114).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Book {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseBook();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.bookName = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.author = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.isbn = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.description = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.genre = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.year = reader.int32();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.coverUrl = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 73) {
+              break;
+            }
+
+            message.price = reader.double();
+            continue;
+          }
+          case 10: {
+            if (tag !== 80) {
+              break;
+            }
+
+            message.stock = reader.int32();
+            continue;
+          }
+          case 11: {
+            if (tag !== 88) {
+              break;
+            }
+
+            message.available = reader.int32();
+            continue;
+          }
+          case 12: {
+            if (tag !== 96) {
+              break;
+            }
+
+            message.isDeleted = reader.bool();
+            continue;
+          }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.createdAt = Timestamp.decode(reader, reader.uint32());
+            continue;
+          }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.updatedAt = Timestamp.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseListBooksRequest(): ListBooksRequest {
+  return { offset: 0, limit: 0 };
+}
+
+export const ListBooksRequest: MessageFns<ListBooksRequest> = {
+  encode(message: ListBooksRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.offset !== 0) {
+      writer.uint32(8).int32(message.offset);
+    }
+    if (message.limit !== 0) {
+      writer.uint32(16).int32(message.limit);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListBooksRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListBooksRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.offset = reader.int32();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.limit = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseListBooksResponse(): ListBooksResponse {
+  return { books: [], total: 0 };
+}
+
+export const ListBooksResponse: MessageFns<ListBooksResponse> = {
+  encode(message: ListBooksResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.books) {
+      Book.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.total !== 0) {
+      writer.uint32(16).int64(message.total);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListBooksResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListBooksResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.books.push(Book.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.total = longToNumber(reader.int64());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseSearchBooksRequest(): SearchBooksRequest {
+  return { offset: 0, limit: 0 };
+}
+
+export const SearchBooksRequest: MessageFns<SearchBooksRequest> = {
+  encode(message: SearchBooksRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.query !== undefined) {
+      writer.uint32(10).string(message.query);
+    }
+    if (message.genre !== undefined) {
+      writer.uint32(18).string(message.genre);
+    }
+    if (message.offset !== 0) {
+      writer.uint32(24).int32(message.offset);
+    }
+    if (message.limit !== 0) {
+      writer.uint32(32).int32(message.limit);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SearchBooksRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSearchBooksRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.query = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.genre = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.offset = reader.int32();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.limit = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseSearchBooksResponse(): SearchBooksResponse {
+  return { books: [], total: 0 };
+}
+
+export const SearchBooksResponse: MessageFns<SearchBooksResponse> = {
+  encode(message: SearchBooksResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.books) {
+      Book.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.total !== 0) {
+      writer.uint32(16).int64(message.total);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SearchBooksResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSearchBooksResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.books.push(Book.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.total = longToNumber(reader.int64());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetBookRequest(): GetBookRequest {
+  return { bookId: "" };
+}
+
+export const GetBookRequest: MessageFns<GetBookRequest> = {
+  encode(message: GetBookRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetBookRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetBookRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetBookResponse(): GetBookResponse {
+  return {};
+}
+
+export const GetBookResponse: MessageFns<GetBookResponse> = {
+  encode(message: GetBookResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.book !== undefined) {
+      Book.encode(message.book, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetBookResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetBookResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.book = Book.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetBooksByIdsRequest(): GetBooksByIdsRequest {
+  return { bookIds: [] };
+}
+
+export const GetBooksByIdsRequest: MessageFns<GetBooksByIdsRequest> = {
+  encode(message: GetBooksByIdsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.bookIds) {
+      writer.uint32(10).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetBooksByIdsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetBooksByIdsRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookIds.push(reader.string());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetBooksByIdsResponse(): GetBooksByIdsResponse {
+  return { books: [] };
+}
+
+export const GetBooksByIdsResponse: MessageFns<GetBooksByIdsResponse> = {
+  encode(message: GetBooksByIdsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.books) {
+      Book.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetBooksByIdsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetBooksByIdsResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.books.push(Book.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCreateBookRequest(): CreateBookRequest {
+  return { bookName: "", author: "", price: 0, stock: 0 };
+}
+
+export const CreateBookRequest: MessageFns<CreateBookRequest> = {
+  encode(message: CreateBookRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookName !== "") {
+      writer.uint32(10).string(message.bookName);
+    }
+    if (message.author !== "") {
+      writer.uint32(18).string(message.author);
+    }
+    if (message.isbn !== undefined) {
+      writer.uint32(26).string(message.isbn);
+    }
+    if (message.description !== undefined) {
+      writer.uint32(34).string(message.description);
+    }
+    if (message.genre !== undefined) {
+      writer.uint32(42).string(message.genre);
+    }
+    if (message.year !== undefined) {
+      writer.uint32(48).int32(message.year);
+    }
+    if (message.coverUrl !== undefined) {
+      writer.uint32(58).string(message.coverUrl);
+    }
+    if (message.price !== 0) {
+      writer.uint32(65).double(message.price);
+    }
+    if (message.stock !== 0) {
+      writer.uint32(72).int32(message.stock);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateBookRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateBookRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookName = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.author = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.isbn = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.description = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.genre = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.year = reader.int32();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.coverUrl = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 65) {
+              break;
+            }
+
+            message.price = reader.double();
+            continue;
+          }
+          case 9: {
+            if (tag !== 72) {
+              break;
+            }
+
+            message.stock = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCreateBookResponse(): CreateBookResponse {
+  return {};
+}
+
+export const CreateBookResponse: MessageFns<CreateBookResponse> = {
+  encode(message: CreateBookResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.book !== undefined) {
+      Book.encode(message.book, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateBookResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateBookResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.book = Book.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseUpdateBookRequest(): UpdateBookRequest {
+  return { bookId: "" };
+}
+
+export const UpdateBookRequest: MessageFns<UpdateBookRequest> = {
+  encode(message: UpdateBookRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    if (message.bookName !== undefined) {
+      writer.uint32(18).string(message.bookName);
+    }
+    if (message.author !== undefined) {
+      writer.uint32(26).string(message.author);
+    }
+    if (message.isbn !== undefined) {
+      writer.uint32(34).string(message.isbn);
+    }
+    if (message.description !== undefined) {
+      writer.uint32(42).string(message.description);
+    }
+    if (message.genre !== undefined) {
+      writer.uint32(50).string(message.genre);
+    }
+    if (message.year !== undefined) {
+      writer.uint32(56).int32(message.year);
+    }
+    if (message.coverUrl !== undefined) {
+      writer.uint32(66).string(message.coverUrl);
+    }
+    if (message.price !== undefined) {
+      writer.uint32(73).double(message.price);
+    }
+    if (message.stock !== undefined) {
+      writer.uint32(80).int32(message.stock);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): UpdateBookRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseUpdateBookRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.bookName = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.author = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.isbn = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.description = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.genre = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.year = reader.int32();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.coverUrl = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 73) {
+              break;
+            }
+
+            message.price = reader.double();
+            continue;
+          }
+          case 10: {
+            if (tag !== 80) {
+              break;
+            }
+
+            message.stock = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseUpdateBookResponse(): UpdateBookResponse {
+  return {};
+}
+
+export const UpdateBookResponse: MessageFns<UpdateBookResponse> = {
+  encode(message: UpdateBookResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.book !== undefined) {
+      Book.encode(message.book, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): UpdateBookResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseUpdateBookResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.book = Book.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseDeleteBookRequest(): DeleteBookRequest {
+  return { bookId: "" };
+}
+
+export const DeleteBookRequest: MessageFns<DeleteBookRequest> = {
+  encode(message: DeleteBookRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteBookRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseDeleteBookRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseDeleteBookResponse(): DeleteBookResponse {
+  return {};
+}
+
+export const DeleteBookResponse: MessageFns<DeleteBookResponse> = {
+  encode(_: DeleteBookResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteBookResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseDeleteBookResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseRestoreBookRequest(): RestoreBookRequest {
+  return { bookId: "" };
+}
+
+export const RestoreBookRequest: MessageFns<RestoreBookRequest> = {
+  encode(message: RestoreBookRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RestoreBookRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRestoreBookRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseRestoreBookResponse(): RestoreBookResponse {
+  return {};
+}
+
+export const RestoreBookResponse: MessageFns<RestoreBookResponse> = {
+  encode(message: RestoreBookResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.book !== undefined) {
+      Book.encode(message.book, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RestoreBookResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRestoreBookResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.book = Book.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseStockReservationItem(): StockReservationItem {
+  return { bookId: "", amount: 0 };
+}
+
+export const StockReservationItem: MessageFns<StockReservationItem> = {
+  encode(message: StockReservationItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(16).int32(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StockReservationItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseStockReservationItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.amount = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseReserveStockRequest(): ReserveStockRequest {
+  return { items: [] };
+}
+
+export const ReserveStockRequest: MessageFns<ReserveStockRequest> = {
+  encode(message: ReserveStockRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.items) {
+      StockReservationItem.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReserveStockRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReserveStockRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.items.push(StockReservationItem.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseReserveStockResponse(): ReserveStockResponse {
+  return { reservationId: "" };
+}
+
+export const ReserveStockResponse: MessageFns<ReserveStockResponse> = {
+  encode(message: ReserveStockResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.reservationId !== "") {
+      writer.uint32(10).string(message.reservationId);
+    }
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(message.expiresAt, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReserveStockResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReserveStockResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.reservationId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.expiresAt = Timestamp.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCommitStockRequest(): CommitStockRequest {
+  return { reservationId: "" };
+}
+
+export const CommitStockRequest: MessageFns<CommitStockRequest> = {
+  encode(message: CommitStockRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.reservationId !== "") {
+      writer.uint32(10).string(message.reservationId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CommitStockRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCommitStockRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.reservationId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCommitStockResponse(): CommitStockResponse {
+  return {};
+}
+
+export const CommitStockResponse: MessageFns<CommitStockResponse> = {
+  encode(_: CommitStockResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CommitStockResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCommitStockResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseReleaseStockRequest(): ReleaseStockRequest {
+  return { reservationId: "" };
+}
+
+export const ReleaseStockRequest: MessageFns<ReleaseStockRequest> = {
+  encode(message: ReleaseStockRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.reservationId !== "") {
+      writer.uint32(10).string(message.reservationId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReleaseStockRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReleaseStockRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.reservationId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseReleaseStockResponse(): ReleaseStockResponse {
+  return {};
+}
+
+export const ReleaseStockResponse: MessageFns<ReleaseStockResponse> = {
+  encode(_: ReleaseStockResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReleaseStockResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReleaseStockResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
 
 /**
  * Book catalog: metadata, stock and temporary reservations.
@@ -311,3 +1801,163 @@ export function CatalogServiceControllerMethods() {
 }
 
 export const CATALOG_SERVICE_NAME = "CatalogService";
+
+/**
+ * Book catalog: metadata, stock and temporary reservations.
+ * See docs/specs/02-catalog-service.md.
+ */
+export type CatalogServiceService = typeof CatalogServiceService;
+export const CatalogServiceService = {
+  /** Public storefront listing (offset pagination, limit <= 100). */
+  listBooks: {
+    path: "/bookshop.catalog.v1.CatalogService/ListBooks" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ListBooksRequest): Buffer => Buffer.from(ListBooksRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ListBooksRequest => ListBooksRequest.decode(value),
+    responseSerialize: (value: ListBooksResponse): Buffer => Buffer.from(ListBooksResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ListBooksResponse => ListBooksResponse.decode(value),
+  },
+  /** Public substring search on book_name/author + exact genre filter. */
+  searchBooks: {
+    path: "/bookshop.catalog.v1.CatalogService/SearchBooks" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: SearchBooksRequest): Buffer => Buffer.from(SearchBooksRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): SearchBooksRequest => SearchBooksRequest.decode(value),
+    responseSerialize: (value: SearchBooksResponse): Buffer => Buffer.from(SearchBooksResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): SearchBooksResponse => SearchBooksResponse.decode(value),
+  },
+  getBook: {
+    path: "/bookshop.catalog.v1.CatalogService/GetBook" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetBookRequest): Buffer => Buffer.from(GetBookRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetBookRequest => GetBookRequest.decode(value),
+    responseSerialize: (value: GetBookResponse): Buffer => Buffer.from(GetBookResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetBookResponse => GetBookResponse.decode(value),
+  },
+  /** NOT_FOUND if any id is missing (deleted books ARE returned). */
+  getBooksByIds: {
+    path: "/bookshop.catalog.v1.CatalogService/GetBooksByIds" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetBooksByIdsRequest): Buffer => Buffer.from(GetBooksByIdsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetBooksByIdsRequest => GetBooksByIdsRequest.decode(value),
+    responseSerialize: (value: GetBooksByIdsResponse): Buffer =>
+      Buffer.from(GetBooksByIdsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetBooksByIdsResponse => GetBooksByIdsResponse.decode(value),
+  },
+  /** EMPLOYER or ADMIN. */
+  createBook: {
+    path: "/bookshop.catalog.v1.CatalogService/CreateBook" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: CreateBookRequest): Buffer => Buffer.from(CreateBookRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateBookRequest => CreateBookRequest.decode(value),
+    responseSerialize: (value: CreateBookResponse): Buffer => Buffer.from(CreateBookResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CreateBookResponse => CreateBookResponse.decode(value),
+  },
+  /** EMPLOYER or ADMIN. */
+  updateBook: {
+    path: "/bookshop.catalog.v1.CatalogService/UpdateBook" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: UpdateBookRequest): Buffer => Buffer.from(UpdateBookRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): UpdateBookRequest => UpdateBookRequest.decode(value),
+    responseSerialize: (value: UpdateBookResponse): Buffer => Buffer.from(UpdateBookResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): UpdateBookResponse => UpdateBookResponse.decode(value),
+  },
+  /** ADMIN only — soft delete. */
+  deleteBook: {
+    path: "/bookshop.catalog.v1.CatalogService/DeleteBook" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: DeleteBookRequest): Buffer => Buffer.from(DeleteBookRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): DeleteBookRequest => DeleteBookRequest.decode(value),
+    responseSerialize: (value: DeleteBookResponse): Buffer => Buffer.from(DeleteBookResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): DeleteBookResponse => DeleteBookResponse.decode(value),
+  },
+  /** ADMIN only — clears soft delete. */
+  restoreBook: {
+    path: "/bookshop.catalog.v1.CatalogService/RestoreBook" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RestoreBookRequest): Buffer => Buffer.from(RestoreBookRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RestoreBookRequest => RestoreBookRequest.decode(value),
+    responseSerialize: (value: RestoreBookResponse): Buffer => Buffer.from(RestoreBookResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RestoreBookResponse => RestoreBookResponse.decode(value),
+  },
+  /** Any valid JWT — atomic all-or-nothing reservation with TTL. */
+  reserveStock: {
+    path: "/bookshop.catalog.v1.CatalogService/ReserveStock" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ReserveStockRequest): Buffer => Buffer.from(ReserveStockRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReserveStockRequest => ReserveStockRequest.decode(value),
+    responseSerialize: (value: ReserveStockResponse): Buffer =>
+      Buffer.from(ReserveStockResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ReserveStockResponse => ReserveStockResponse.decode(value),
+  },
+  /** Any valid JWT — idempotent commit (stock decrement). */
+  commitStock: {
+    path: "/bookshop.catalog.v1.CatalogService/CommitStock" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: CommitStockRequest): Buffer => Buffer.from(CommitStockRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CommitStockRequest => CommitStockRequest.decode(value),
+    responseSerialize: (value: CommitStockResponse): Buffer => Buffer.from(CommitStockResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CommitStockResponse => CommitStockResponse.decode(value),
+  },
+  /** Any valid JWT — cancel a reservation. */
+  releaseStock: {
+    path: "/bookshop.catalog.v1.CatalogService/ReleaseStock" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ReleaseStockRequest): Buffer => Buffer.from(ReleaseStockRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReleaseStockRequest => ReleaseStockRequest.decode(value),
+    responseSerialize: (value: ReleaseStockResponse): Buffer =>
+      Buffer.from(ReleaseStockResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ReleaseStockResponse => ReleaseStockResponse.decode(value),
+  },
+} as const;
+
+export interface CatalogServiceServer extends UntypedServiceImplementation {
+  /** Public storefront listing (offset pagination, limit <= 100). */
+  listBooks: handleUnaryCall<ListBooksRequest, ListBooksResponse>;
+  /** Public substring search on book_name/author + exact genre filter. */
+  searchBooks: handleUnaryCall<SearchBooksRequest, SearchBooksResponse>;
+  getBook: handleUnaryCall<GetBookRequest, GetBookResponse>;
+  /** NOT_FOUND if any id is missing (deleted books ARE returned). */
+  getBooksByIds: handleUnaryCall<GetBooksByIdsRequest, GetBooksByIdsResponse>;
+  /** EMPLOYER or ADMIN. */
+  createBook: handleUnaryCall<CreateBookRequest, CreateBookResponse>;
+  /** EMPLOYER or ADMIN. */
+  updateBook: handleUnaryCall<UpdateBookRequest, UpdateBookResponse>;
+  /** ADMIN only — soft delete. */
+  deleteBook: handleUnaryCall<DeleteBookRequest, DeleteBookResponse>;
+  /** ADMIN only — clears soft delete. */
+  restoreBook: handleUnaryCall<RestoreBookRequest, RestoreBookResponse>;
+  /** Any valid JWT — atomic all-or-nothing reservation with TTL. */
+  reserveStock: handleUnaryCall<ReserveStockRequest, ReserveStockResponse>;
+  /** Any valid JWT — idempotent commit (stock decrement). */
+  commitStock: handleUnaryCall<CommitStockRequest, CommitStockResponse>;
+  /** Any valid JWT — cancel a reservation. */
+  releaseStock: handleUnaryCall<ReleaseStockRequest, ReleaseStockResponse>;
+}
+
+function longToNumber(int64: { toString(): string }): number {
+  const num = globalThis.Number(int64.toString());
+  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+  }
+  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+  }
+  return num;
+}
+
+export interface MessageFns<T> {
+  encode(message: T, writer?: BinaryWriter): BinaryWriter;
+  decode(input: BinaryReader | Uint8Array, length?: number): T;
+}

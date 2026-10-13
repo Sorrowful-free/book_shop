@@ -2,13 +2,25 @@
 
 Известные проблемы и улучшения, которые **осознанно отложены**. Каждая запись:
 что, почему отложено, когда возвращаться. Не баги — весь реализованный функционал
-зелёный (`348/348` тестов), это качество/поддерживаемость/эксплуатация.
+зелёный (`441/441` тестов), это качество/поддерживаемость/эксплуатация.
 
 > Ревизия 2026-10: T1/T2/T3-part, C3, C6, D1, G3, G5, G8 закрыты cleanup-коммитом
 > (test:unit/test:e2e скрипты, правила в AGENTS.md, partitioner, статусы спек).
 > Заодно исправлены: `ReserveStock` без `details` (spec §2), `JwtVerifier`
 > принимал access-токены без `jti` (неотзываемые), `getCart` продлевал TTL
 > corrupt-ключа, путь к `gen-keys` в `.env.example` catalog/cart.
+>
+> Ревизия 2026-10 (order-service, план 04): реализован по спеке 04 + fix-спеки
+> F-O1..F-O5 (order), F-C4 (catalog `reservationStatus` в details), F-K4
+> (cart — декремент позиций по `goods[]` вместо whole-cart clear). Закрыты
+> C1 (`requestValidationPipe` → `@book-shop/common` + миграция трёх сервисов)
+> и C7 для order (`keyField: "userId"`); G9 частично. Новое: C9 — общий
+> rpcError с `error-details`-trailer кандидат в common.
+>
+> C1 закрыт: `requestValidationPipe` вынесен в `@book-shop/common`
+> (`src/rpc-validation-pipe.ts`), auth/catalog/cart переведены на общий
+> pipe — семантика идентична (INVALID_ARGUMENT + top-level `code`),
+> flatten `children` для `@ValidateNested` сохранён.
 
 ## Тесты / CI
 
@@ -20,13 +32,6 @@ negative number. Timeout duration was set to 1` — похоже на kafkajs/Ne
 **Когда:** при первом проявлении реальных таймаут-проблем в тестах.
 
 ## Код / архитектура
-
-### C1. Дублирование `requestValidationPipe` в трёх сервисах
-`auth.dto.ts`, `catalog-service/src/dto.ts`, `cart-service/src/dto.ts` —
-три почти идентичных `ValidationPipe` с `RpcException` + `code` фабрикой.
-Кандидат на вынос в `@book-shop/common` (как `JwtVerifier`/`OutboxRelay`).
-**Когда:** при появлении четвёртого потребителя (order-service) — уже
-реальный сигнал, а не преждевременная абстракция.
 
 ### C2. Дублирование sweeper-паттерна
 `RefreshTokenSweeper` (auth) и `ReservationSweeper` (catalog) — одинаковый
@@ -61,10 +66,21 @@ ESLint-правило «metadata-параметр без `@Ctx()`», medium effo
 
 ### C7. Детерминированный kafka-key не для всех событий
 `key = userId` покрывает `auth.user.*`, `key = bookId` — `catalog.book.*`.
+Решено для order (2026-10): `order.order.*` тоже `key = userId` — per-user
+ordering включает per-order (created→paid→cancelled по заказам одного
+пользователя не перемешивается) и совпадает с ожиданием cart e2e.
 События без очевидного entity-id (или с составным) могут разъезжаться по
 партициям → нет ordering-гарантии по сущности.
-**Когда:** при добавлении новых типов событий (order events — проверить,
-что `key = orderId` или `userId` — что важнее для консьюмеров).
+**Когда:** при добавлении новых типов событий без user/entity-id в payload.
+
+### C9. rpcError + error-details trailer дублируется в сервисах
+`rpcError` локален в каждом сервисе; order-service и catalog теперь
+дублируют логику «details → `error-details` Metadata-trailer» (единственный
+канал, который grpc-js `serverErrorToStatus` пропускает для структурных
+данных). Кандидат на вынос в `@book-shop/common` рядом с
+`requestValidationPipe` (общий конструктор `RpcException` с code+trailers).
+**Когда:** при следующей правке rpcError в двух местах или появлении
+пятого сервиса (api-gateway не считается — он HTTP).
 
 ## Конфигурация / эксплуатация
 
@@ -105,11 +121,12 @@ compose-сценария. Ошибки в wiring (неверное имя пер
 **Когда:** при правках `onModuleInit` — добавить тест на wiring.
 
 ### G9. Cart Kafka-consumer не имеет e2e на реальном `order.order.created`
-Consumer подписан на `order.order.events` (group `cart-service`), но сам
-order-service не реализован — ничто не продюсит это событие, и e2e
-«publish → cart cleared» невозможен до появления продюсера (или тестового
-producer'а в самом e2e).
-**Когда:** order-service (план 04) или standalone-тест с KafkaProducer.
+Частично закрыто (2026-10): продюсер появился — order-service шлёт
+`order.order.created` через outbox, а cart e2e проверяет F-K4-семантику
+(декремент позиций по `goods[]`) тестовым producer'ом. Осталось нереальным
+только сквозное «order.Checkout → Kafka → cart» — это осознанно отнесено
+к сквозному e2e (Plan 7), где сервисы подняты вместе.
+**Когда:** Plan 7 (интеграционный e2e).
 
 ## Процесс
 

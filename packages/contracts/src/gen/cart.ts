@@ -5,7 +5,8 @@
 // source: cart.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import type { handleUnaryCall, Metadata, UntypedServiceImplementation } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Empty } from "./google/protobuf/empty";
@@ -13,8 +14,10 @@ import { Timestamp } from "./google/protobuf/timestamp";
 
 export const protobufPackage = "bookshop.cart.v1";
 
-/** Raw positions only — enrichment (title, price, availability) is the
- * api-gateway/BFF responsibility. */
+/**
+ * Raw positions only — enrichment (title, price, availability) is the
+ * api-gateway/BFF responsibility.
+ */
 export interface Cart {
   items: CartItem[];
   /** Sliding-TTL expiry; absent for an empty/missing cart. */
@@ -66,6 +69,532 @@ export interface MergeCartRequest {
 }
 
 export const BOOKSHOP_CART_V1_PACKAGE_NAME = "bookshop.cart.v1";
+
+function createBaseCart(): Cart {
+  return { items: [] };
+}
+
+export const Cart: MessageFns<Cart> = {
+  encode(message: Cart, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.items) {
+      CartItem.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(message.expiresAt, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Cart {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCart();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.items.push(CartItem.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.expiresAt = Timestamp.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCartItem(): CartItem {
+  return { bookId: "", amount: 0 };
+}
+
+export const CartItem: MessageFns<CartItem> = {
+  encode(message: CartItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.bookId !== "") {
+      writer.uint32(10).string(message.bookId);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(16).int32(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CartItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCartItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.amount = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCreateCartRequest(): CreateCartRequest {
+  return {};
+}
+
+export const CreateCartRequest: MessageFns<CreateCartRequest> = {
+  encode(_: CreateCartRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCartRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCartRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCreateCartResponse(): CreateCartResponse {
+  return { cartId: "" };
+}
+
+export const CreateCartResponse: MessageFns<CreateCartResponse> = {
+  encode(message: CreateCartResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cartId !== "") {
+      writer.uint32(10).string(message.cartId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCartResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCartResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.cartId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetCartRequest(): GetCartRequest {
+  return {};
+}
+
+export const GetCartRequest: MessageFns<GetCartRequest> = {
+  encode(message: GetCartRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cartId !== undefined) {
+      writer.uint32(10).string(message.cartId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetCartRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetCartRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.cartId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseAddItemRequest(): AddItemRequest {
+  return { bookId: "", amount: 0 };
+}
+
+export const AddItemRequest: MessageFns<AddItemRequest> = {
+  encode(message: AddItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cartId !== undefined) {
+      writer.uint32(10).string(message.cartId);
+    }
+    if (message.bookId !== "") {
+      writer.uint32(18).string(message.bookId);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(24).int32(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AddItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAddItemRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.cartId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.amount = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseUpdateItemRequest(): UpdateItemRequest {
+  return { bookId: "", amount: 0 };
+}
+
+export const UpdateItemRequest: MessageFns<UpdateItemRequest> = {
+  encode(message: UpdateItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cartId !== undefined) {
+      writer.uint32(10).string(message.cartId);
+    }
+    if (message.bookId !== "") {
+      writer.uint32(18).string(message.bookId);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(24).int32(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): UpdateItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseUpdateItemRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.cartId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.amount = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseRemoveItemRequest(): RemoveItemRequest {
+  return { bookId: "" };
+}
+
+export const RemoveItemRequest: MessageFns<RemoveItemRequest> = {
+  encode(message: RemoveItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cartId !== undefined) {
+      writer.uint32(10).string(message.cartId);
+    }
+    if (message.bookId !== "") {
+      writer.uint32(18).string(message.bookId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RemoveItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRemoveItemRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.cartId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.bookId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseClearCartRequest(): ClearCartRequest {
+  return {};
+}
+
+export const ClearCartRequest: MessageFns<ClearCartRequest> = {
+  encode(message: ClearCartRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cartId !== undefined) {
+      writer.uint32(10).string(message.cartId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ClearCartRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseClearCartRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.cartId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseMergeCartRequest(): MergeCartRequest {
+  return { guestCartId: "" };
+}
+
+export const MergeCartRequest: MessageFns<MergeCartRequest> = {
+  encode(message: MergeCartRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.guestCartId !== "") {
+      writer.uint32(10).string(message.guestCartId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MergeCartRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMergeCartRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.guestCartId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
 
 /**
  * Temporary shopping carts with sliding Redis TTL: guest carts addressed by a
@@ -216,3 +745,151 @@ export function CartServiceControllerMethods() {
 }
 
 export const CART_SERVICE_NAME = "CartService";
+
+/**
+ * Temporary shopping carts with sliding Redis TTL: guest carts addressed by a
+ * service-issued uuid `cart_id`, user carts addressed by the `sub` of a
+ * verified JWT from `authorization` metadata.
+ * See docs/specs/03-cart-service.md.
+ */
+export type CartServiceService = typeof CartServiceService;
+export const CartServiceService = {
+  /**
+   * Issues a new guest cart_id (uuid, kept in a cookie by the client).
+   * No auth required.
+   */
+  createCart: {
+    path: "/bookshop.cart.v1.CartService/CreateCart" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: CreateCartRequest): Buffer => Buffer.from(CreateCartRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateCartRequest => CreateCartRequest.decode(value),
+    responseSerialize: (value: CreateCartResponse): Buffer => Buffer.from(CreateCartResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CreateCartResponse => CreateCartResponse.decode(value),
+  },
+  /**
+   * cart_id present → guest cart; cart_id absent → user cart (JWT required).
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT (malformed cart_id).
+   */
+  getCart: {
+    path: "/bookshop.cart.v1.CartService/GetCart" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetCartRequest): Buffer => Buffer.from(GetCartRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetCartRequest => GetCartRequest.decode(value),
+    responseSerialize: (value: Cart): Buffer => Buffer.from(Cart.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Cart => Cart.decode(value),
+  },
+  /**
+   * Sums amount when the book is already in the cart.
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT (amount <= 0, malformed cart_id).
+   */
+  addItem: {
+    path: "/bookshop.cart.v1.CartService/AddItem" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AddItemRequest): Buffer => Buffer.from(AddItemRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AddItemRequest => AddItemRequest.decode(value),
+    responseSerialize: (value: Cart): Buffer => Buffer.from(Cart.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Cart => Cart.decode(value),
+  },
+  /**
+   * Sets the absolute amount; amount = 0 removes the position;
+   * a missing position → NOT_FOUND.
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT (amount < 0), NOT_FOUND.
+   */
+  updateItem: {
+    path: "/bookshop.cart.v1.CartService/UpdateItem" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: UpdateItemRequest): Buffer => Buffer.from(UpdateItemRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): UpdateItemRequest => UpdateItemRequest.decode(value),
+    responseSerialize: (value: Cart): Buffer => Buffer.from(Cart.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Cart => Cart.decode(value),
+  },
+  /** Errors: UNAUTHENTICATED, INVALID_ARGUMENT, NOT_FOUND. */
+  removeItem: {
+    path: "/bookshop.cart.v1.CartService/RemoveItem" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RemoveItemRequest): Buffer => Buffer.from(RemoveItemRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RemoveItemRequest => RemoveItemRequest.decode(value),
+    responseSerialize: (value: Cart): Buffer => Buffer.from(Cart.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Cart => Cart.decode(value),
+  },
+  /**
+   * Idempotent.
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT.
+   */
+  clearCart: {
+    path: "/bookshop.cart.v1.CartService/ClearCart" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ClearCartRequest): Buffer => Buffer.from(ClearCartRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ClearCartRequest => ClearCartRequest.decode(value),
+    responseSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Empty => Empty.decode(value),
+  },
+  /**
+   * Sums the guest positions into the caller's user cart and deletes the
+   * guest cart; a missing guest_cart_id is a no-op success. Called by
+   * api-gateway after login/register. NOTE: guest_cart_id is the merge
+   * SOURCE — it does not switch the request into guest mode; the target
+   * cart is always the user cart, so a valid JWT is required.
+   * Errors: INVALID_ARGUMENT, UNAUTHENTICATED (no valid JWT).
+   */
+  mergeCart: {
+    path: "/bookshop.cart.v1.CartService/MergeCart" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: MergeCartRequest): Buffer => Buffer.from(MergeCartRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): MergeCartRequest => MergeCartRequest.decode(value),
+    responseSerialize: (value: Cart): Buffer => Buffer.from(Cart.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Cart => Cart.decode(value),
+  },
+} as const;
+
+export interface CartServiceServer extends UntypedServiceImplementation {
+  /**
+   * Issues a new guest cart_id (uuid, kept in a cookie by the client).
+   * No auth required.
+   */
+  createCart: handleUnaryCall<CreateCartRequest, CreateCartResponse>;
+  /**
+   * cart_id present → guest cart; cart_id absent → user cart (JWT required).
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT (malformed cart_id).
+   */
+  getCart: handleUnaryCall<GetCartRequest, Cart>;
+  /**
+   * Sums amount when the book is already in the cart.
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT (amount <= 0, malformed cart_id).
+   */
+  addItem: handleUnaryCall<AddItemRequest, Cart>;
+  /**
+   * Sets the absolute amount; amount = 0 removes the position;
+   * a missing position → NOT_FOUND.
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT (amount < 0), NOT_FOUND.
+   */
+  updateItem: handleUnaryCall<UpdateItemRequest, Cart>;
+  /** Errors: UNAUTHENTICATED, INVALID_ARGUMENT, NOT_FOUND. */
+  removeItem: handleUnaryCall<RemoveItemRequest, Cart>;
+  /**
+   * Idempotent.
+   * Errors: UNAUTHENTICATED, INVALID_ARGUMENT.
+   */
+  clearCart: handleUnaryCall<ClearCartRequest, Empty>;
+  /**
+   * Sums the guest positions into the caller's user cart and deletes the
+   * guest cart; a missing guest_cart_id is a no-op success. Called by
+   * api-gateway after login/register. NOTE: guest_cart_id is the merge
+   * SOURCE — it does not switch the request into guest mode; the target
+   * cart is always the user cart, so a valid JWT is required.
+   * Errors: INVALID_ARGUMENT, UNAUTHENTICATED (no valid JWT).
+   */
+  mergeCart: handleUnaryCall<MergeCartRequest, Cart>;
+}
+
+export interface MessageFns<T> {
+  encode(message: T, writer?: BinaryWriter): BinaryWriter;
+  decode(input: BinaryReader | Uint8Array, length?: number): T;
+}

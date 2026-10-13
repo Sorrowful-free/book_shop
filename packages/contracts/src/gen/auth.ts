@@ -5,7 +5,8 @@
 // source: auth.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import type { handleUnaryCall, Metadata, UntypedServiceImplementation } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Empty } from "./google/protobuf/empty";
@@ -57,7 +58,10 @@ export interface GetUserRequest {
   userId: string;
 }
 
-/** Access JWT payload mirrors: sub = user_id, user_name, role, jti (uuid). */
+/**
+ * Access JWT payload mirrors: sub = user_id, user_name, role, jti (uuid),
+ * typ ("access" | "refresh" — strictly enforced by JwtVerifier/TokenService).
+ */
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -80,6 +84,598 @@ export interface UserContext {
 }
 
 export const BOOKSHOP_AUTH_V1_PACKAGE_NAME = "bookshop.auth.v1";
+
+function createBaseRegisterRequest(): RegisterRequest {
+  return { userName: "", password: "" };
+}
+
+export const RegisterRequest: MessageFns<RegisterRequest> = {
+  encode(message: RegisterRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.userName !== "") {
+      writer.uint32(10).string(message.userName);
+    }
+    if (message.password !== "") {
+      writer.uint32(18).string(message.password);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RegisterRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRegisterRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.userName = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.password = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseLoginRequest(): LoginRequest {
+  return { userName: "", password: "" };
+}
+
+export const LoginRequest: MessageFns<LoginRequest> = {
+  encode(message: LoginRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.userName !== "") {
+      writer.uint32(10).string(message.userName);
+    }
+    if (message.password !== "") {
+      writer.uint32(18).string(message.password);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LoginRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseLoginRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.userName = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.password = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseRefreshRequest(): RefreshRequest {
+  return { refreshToken: "" };
+}
+
+export const RefreshRequest: MessageFns<RefreshRequest> = {
+  encode(message: RefreshRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.refreshToken !== "") {
+      writer.uint32(10).string(message.refreshToken);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RefreshRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRefreshRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.refreshToken = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseRevokeTokenRequest(): RevokeTokenRequest {
+  return { refreshToken: "" };
+}
+
+export const RevokeTokenRequest: MessageFns<RevokeTokenRequest> = {
+  encode(message: RevokeTokenRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.refreshToken !== "") {
+      writer.uint32(10).string(message.refreshToken);
+    }
+    if (message.accessToken !== undefined) {
+      writer.uint32(18).string(message.accessToken);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RevokeTokenRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRevokeTokenRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.refreshToken = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.accessToken = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseValidateTokenRequest(): ValidateTokenRequest {
+  return { accessToken: "" };
+}
+
+export const ValidateTokenRequest: MessageFns<ValidateTokenRequest> = {
+  encode(message: ValidateTokenRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.accessToken !== "") {
+      writer.uint32(10).string(message.accessToken);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ValidateTokenRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseValidateTokenRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.accessToken = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseValidateTokenResponse(): ValidateTokenResponse {
+  return { valid: false };
+}
+
+export const ValidateTokenResponse: MessageFns<ValidateTokenResponse> = {
+  encode(message: ValidateTokenResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.valid !== false) {
+      writer.uint32(8).bool(message.valid);
+    }
+    if (message.user !== undefined) {
+      UserContext.encode(message.user, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ValidateTokenResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseValidateTokenResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.valid = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.user = UserContext.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetUserRequest(): GetUserRequest {
+  return { userId: "" };
+}
+
+export const GetUserRequest: MessageFns<GetUserRequest> = {
+  encode(message: GetUserRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.userId !== "") {
+      writer.uint32(10).string(message.userId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetUserRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetUserRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.userId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseAuthTokens(): AuthTokens {
+  return { accessToken: "", refreshToken: "", accessTokenExpiresIn: 0, refreshTokenExpiresIn: 0 };
+}
+
+export const AuthTokens: MessageFns<AuthTokens> = {
+  encode(message: AuthTokens, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.accessToken !== "") {
+      writer.uint32(10).string(message.accessToken);
+    }
+    if (message.refreshToken !== "") {
+      writer.uint32(18).string(message.refreshToken);
+    }
+    if (message.accessTokenExpiresIn !== 0) {
+      writer.uint32(24).int64(message.accessTokenExpiresIn);
+    }
+    if (message.refreshTokenExpiresIn !== 0) {
+      writer.uint32(32).int64(message.refreshTokenExpiresIn);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AuthTokens {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAuthTokens();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.accessToken = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.refreshToken = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.accessTokenExpiresIn = longToNumber(reader.int64());
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.refreshTokenExpiresIn = longToNumber(reader.int64());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseUser(): User {
+  return { userId: "", userName: "", role: 0 };
+}
+
+export const User: MessageFns<User> = {
+  encode(message: User, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.userId !== "") {
+      writer.uint32(10).string(message.userId);
+    }
+    if (message.userName !== "") {
+      writer.uint32(18).string(message.userName);
+    }
+    if (message.role !== 0) {
+      writer.uint32(24).int32(message.role);
+    }
+    if (message.createdAt !== undefined) {
+      Timestamp.encode(message.createdAt, writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): User {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseUser();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.userId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.userName = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.role = reader.int32() as any;
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.createdAt = Timestamp.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseUserContext(): UserContext {
+  return { userId: "", userName: "", role: 0 };
+}
+
+export const UserContext: MessageFns<UserContext> = {
+  encode(message: UserContext, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.userId !== "") {
+      writer.uint32(10).string(message.userId);
+    }
+    if (message.userName !== "") {
+      writer.uint32(18).string(message.userName);
+    }
+    if (message.role !== 0) {
+      writer.uint32(24).int32(message.role);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): UserContext {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseUserContext();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.userId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.userName = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.role = reader.int32() as any;
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
 
 /**
  * Identity service: registration, login, refresh rotation, token
@@ -198,3 +794,137 @@ export function AuthServiceControllerMethods() {
 }
 
 export const AUTH_SERVICE_NAME = "AuthService";
+
+/**
+ * Identity service: registration, login, refresh rotation, token
+ * revocation/validation and user profile reads. See docs/specs/01-auth-service.md.
+ */
+export type AuthServiceService = typeof AuthServiceService;
+export const AuthServiceService = {
+  /**
+   * Creates a CUSTOMER user and returns a token pair (auto-login).
+   * Errors: INVALID_ARGUMENT, ALREADY_EXISTS.
+   */
+  register: {
+    path: "/bookshop.auth.v1.AuthService/Register" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RegisterRequest): Buffer => Buffer.from(RegisterRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RegisterRequest => RegisterRequest.decode(value),
+    responseSerialize: (value: AuthTokens): Buffer => Buffer.from(AuthTokens.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AuthTokens => AuthTokens.decode(value),
+  },
+  /** Errors: INVALID_ARGUMENT, UNAUTHENTICATED. */
+  login: {
+    path: "/bookshop.auth.v1.AuthService/Login" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: LoginRequest): Buffer => Buffer.from(LoginRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): LoginRequest => LoginRequest.decode(value),
+    responseSerialize: (value: AuthTokens): Buffer => Buffer.from(AuthTokens.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AuthTokens => AuthTokens.decode(value),
+  },
+  /**
+   * Rotates the refresh token (old jti is revoked).
+   * Errors: UNAUTHENTICATED.
+   */
+  refresh: {
+    path: "/bookshop.auth.v1.AuthService/Refresh" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RefreshRequest): Buffer => Buffer.from(RefreshRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RefreshRequest => RefreshRequest.decode(value),
+    responseSerialize: (value: AuthTokens): Buffer => Buffer.from(AuthTokens.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AuthTokens => AuthTokens.decode(value),
+  },
+  /**
+   * Logout: marks the refresh jti revoked; when access_token is present its
+   * jti is signature-checked and written to the Redis denylist with
+   * TTL = exp - now (skipped when <= 0). Idempotent.
+   * Errors: UNAUTHENTICATED (bad signature).
+   */
+  revokeToken: {
+    path: "/bookshop.auth.v1.AuthService/RevokeToken" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RevokeTokenRequest): Buffer => Buffer.from(RevokeTokenRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RevokeTokenRequest => RevokeTokenRequest.decode(value),
+    responseSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Empty => Empty.decode(value),
+  },
+  /**
+   * Signature + expiry + denylist check. Never errors — invalid input
+   * yields valid=false.
+   */
+  validateToken: {
+    path: "/bookshop.auth.v1.AuthService/ValidateToken" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ValidateTokenRequest): Buffer => Buffer.from(ValidateTokenRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ValidateTokenRequest => ValidateTokenRequest.decode(value),
+    responseSerialize: (value: ValidateTokenResponse): Buffer =>
+      Buffer.from(ValidateTokenResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ValidateTokenResponse => ValidateTokenResponse.decode(value),
+  },
+  /**
+   * Own profile: any role. Foreign profile: ADMIN or EMPLOYER only.
+   * Errors: UNAUTHENTICATED, NOT_FOUND, PERMISSION_DENIED.
+   */
+  getUser: {
+    path: "/bookshop.auth.v1.AuthService/GetUser" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetUserRequest): Buffer => Buffer.from(GetUserRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetUserRequest => GetUserRequest.decode(value),
+    responseSerialize: (value: User): Buffer => Buffer.from(User.encode(value).finish()),
+    responseDeserialize: (value: Buffer): User => User.decode(value),
+  },
+} as const;
+
+export interface AuthServiceServer extends UntypedServiceImplementation {
+  /**
+   * Creates a CUSTOMER user and returns a token pair (auto-login).
+   * Errors: INVALID_ARGUMENT, ALREADY_EXISTS.
+   */
+  register: handleUnaryCall<RegisterRequest, AuthTokens>;
+  /** Errors: INVALID_ARGUMENT, UNAUTHENTICATED. */
+  login: handleUnaryCall<LoginRequest, AuthTokens>;
+  /**
+   * Rotates the refresh token (old jti is revoked).
+   * Errors: UNAUTHENTICATED.
+   */
+  refresh: handleUnaryCall<RefreshRequest, AuthTokens>;
+  /**
+   * Logout: marks the refresh jti revoked; when access_token is present its
+   * jti is signature-checked and written to the Redis denylist with
+   * TTL = exp - now (skipped when <= 0). Idempotent.
+   * Errors: UNAUTHENTICATED (bad signature).
+   */
+  revokeToken: handleUnaryCall<RevokeTokenRequest, Empty>;
+  /**
+   * Signature + expiry + denylist check. Never errors — invalid input
+   * yields valid=false.
+   */
+  validateToken: handleUnaryCall<ValidateTokenRequest, ValidateTokenResponse>;
+  /**
+   * Own profile: any role. Foreign profile: ADMIN or EMPLOYER only.
+   * Errors: UNAUTHENTICATED, NOT_FOUND, PERMISSION_DENIED.
+   */
+  getUser: handleUnaryCall<GetUserRequest, User>;
+}
+
+function longToNumber(int64: { toString(): string }): number {
+  const num = globalThis.Number(int64.toString());
+  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+  }
+  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+  }
+  return num;
+}
+
+export interface MessageFns<T> {
+  encode(message: T, writer?: BinaryWriter): BinaryWriter;
+  decode(input: BinaryReader | Uint8Array, length?: number): T;
+}

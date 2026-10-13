@@ -1,6 +1,6 @@
 # 04. order-service
 
-> Статус: approved
+> Статус: implemented
 > Proto: `packages/contracts/proto/order.proto`
 > Порт: `:50054` | Хранилище: PostgreSQL `order_db` (user `order_user`)
 

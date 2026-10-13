@@ -6,3 +6,4 @@ plugins:
       - nestJs=true
       - useOptionals=messages
       - addGrpcMetadata=true
+      - outputServices=grpc-js
