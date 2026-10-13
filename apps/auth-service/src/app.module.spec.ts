@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { describe, expect, it, mock } from "bun:test";
 import type { PrismaClient } from "./generated/prisma";
-import { seedAdminUser } from "./app.module";
+import { seedAdminUser, seedEmployerUser } from "./app.module";
 
 // seedAdmin must NOT compute a hash when the admin already exists (fixes
 // spec F-A2). The hash function is injected into seedAdminUser so this
@@ -49,6 +49,50 @@ describe("seedAdminUser — lazy hashing (F-A2)", () => {
         userName: "admin",
         passwordHash: "argon2id:admin",
         role: "ADMIN"
+      }
+    });
+  });
+});
+
+// The optional employer seed (spec 06) shares the lazy-hashing semantics —
+// covered with the same injected-hash fakes, no module mocks.
+describe("seedEmployerUser — optional employer seed", () => {
+  it("does not hash the password when the employer already exists", async () => {
+    const prisma = makePrisma({ id: "emp-1", userName: "employer" });
+    const hash = hashPasswordSpy();
+
+    await seedEmployerUser(prisma, {
+      userName: "employer",
+      password: "s3cret",
+      hash
+    });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { userName: "employer" }
+    });
+    expect(hash).not.toHaveBeenCalled();
+    expect(prisma.user.upsert).not.toHaveBeenCalled();
+  });
+
+  it("creates the user with role EMPLOYER when missing", async () => {
+    const prisma = makePrisma(null);
+    const hash = hashPasswordSpy();
+
+    await seedEmployerUser(prisma, {
+      userName: "employer",
+      password: "s3cret",
+      hash
+    });
+
+    expect(hash).toHaveBeenCalledTimes(1);
+    expect(hash).toHaveBeenCalledWith("s3cret");
+    expect(prisma.user.upsert).toHaveBeenCalledWith({
+      where: { userName: "employer" },
+      update: {},
+      create: {
+        userName: "employer",
+        passwordHash: "argon2id:s3cret",
+        role: "EMPLOYER"
       }
     });
   });

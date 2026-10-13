@@ -18,4 +18,25 @@ await prisma.user.upsert({
   create: { userName, passwordHash, role: "ADMIN" }
 });
 
+// Optional employer seed (spec 06): no defaults — only when the name is set.
+const employerName = process.env.SEED_EMPLOYER_USER_NAME;
+if (employerName) {
+  const employerPassword = process.env.SEED_EMPLOYER_PASSWORD;
+  if (!employerPassword) {
+    throw new Error(
+      "SEED_EMPLOYER_PASSWORD is required when SEED_EMPLOYER_USER_NAME is set"
+    );
+  }
+  const employerHash = await hashPassword(employerPassword);
+  await prisma.user.upsert({
+    where: { userName: employerName },
+    update: {},
+    create: {
+      userName: employerName,
+      passwordHash: employerHash,
+      role: "EMPLOYER"
+    }
+  });
+}
+
 await prisma.$disconnect();

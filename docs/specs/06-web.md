@@ -1,6 +1,6 @@
 # 06. web (Nuxt SSR)
 
-> Статус: approved
+> Статус: implemented
 > Порт: `:3001` | Хранилище: — | Клиент api-gateway через Nuxt server routes
 
 ## 1. Ответственность и границы

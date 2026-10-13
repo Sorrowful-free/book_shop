@@ -55,6 +55,13 @@ compose wait kafka-init` после up); недоступный Kafka →
 **Когда:** если e2e начнут флакать при поднятых dev-сервисах — уникализиро-
 вать groupId приложения в тестах (`cart-service-${randomUUID()}`).
 
+### T6. Нет браузерного e2e для web (playwright)
+Сквозные сценарии витрины (гостевая корзина → логин → merge → checkout →
+pay → /orders, admin CRUD) проверены только вручную curl'ом через proxy и
+существующими backend-e2e. Браузерный e2e (playwright + поднятый стек)
+отложен как отдельная задача (spec 06 §8 — «опционально»).
+**Когда:** перед демонстрацией / при первом регрессе в SSR-флоу.
+
 ## Код / архитектура
 
 ### C2. Дублирование sweeper-паттерна
@@ -108,10 +115,12 @@ ordering включает per-order (created→paid→cancelled по заказ�
 
 ## Конфигурация / эксплуатация
 
-### O1. Docker-образы для сервисов
+### O1. Docker-образы для сервисов (включая web)
 `infra/docker-compose.yml` поднимает только инфру (postgres/redis/kafka/
 kafka-ui). Сами сервисы запускаются локально `bun run start`. Для полного
 `docker compose up`-деплоя нужны Dockerfile на каждый app + healthchecks.
+То же для `apps/web` — `nuxt build` производит self-contained `.output/`
+(node-preset сервер, `node .output/server/index.mjs`), Dockerfile нет.
 **Когда:** этап деплоя/демонстрации после gateway+web.
 
 ### O2. `seedAdmin` findUnique→upsert — микро-TOCTOU
@@ -175,6 +184,23 @@ prettier-ошибок, stale `bun.lock`), разбор делал родител
   lockfile от hand-edit), `lint --fix`, `typecheck`, `test:unit`, e2e.
 **Когда:** пересмотреть, если background-агенты получат exec — тогда
 преамбула и правило foreground/background снимаются.
+
+## Web / Nuxt под Bun (план 06)
+
+### W1. Nuxt работает под Bun — оговорки окружения
+В репозитории нет Node.js: все nuxt/nuxi команды идут через `bunx --bun`
+(бинарники имеют `#!/usr/bin/env node`-shebang — прямой запуск упал бы).
+Проверено: `dev`, `build`, `prepare`, `typecheck` (vue-tsc), `bun test`.
+Известные косметические отклонения:
+- `WARN [NUXT_B5010] tailwindcss/nesting could not be loaded` — резолвер
+  bun не подхватывает подпуть `tailwindcss/nesting` из postcss-конфига
+  `@nuxtjs/tailwindcss`; на наши стили не влияет (nested CSS не
+  используется), tailwind-утилиты генерируются.
+- Плагин `nuxt:devtools:config-retriever` предупреждает об ignored
+  vite-хуках — devtools-фича, не влияет на SSR/proxy.
+**Когда:** если появится node-runtime в CI/деплое — можно вернуться на
+обычные `nuxt`/`nuxi` скрипты без `--bun`; если понадобится nested CSS —
+установить `postcss-nesting` явно.
 
 ## Проверено и оставлено как есть (ревизия 2026-10)
 

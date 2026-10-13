@@ -7,6 +7,10 @@
  *   cart:order-processed:{order_id} → "1" dedup marker (TTL) — claimed by
  *   the decrement script so an at-least-once redelivery is a no-op.
  *
+ *   A decrement that empties the cart DELs the key rather than rewriting
+ *   `{"items":{}}` — cjson encodes an empty Lua table as an object, which
+ *   is not a valid cart document; missing already reads as an empty cart.
+ *
  * Unit tests substitute an in-memory implementation; the production
  * implementation is a thin ioredis adapter added by the implementation phase.
  */
@@ -88,7 +92,9 @@ export interface CartRepository {
    * remainder stays (units added after checkout belong to the next order).
    * Positions absent from `goods` are untouched; a missing or corrupt key
    * is a no-op (the consumer is best-effort and at-least-once). The write
-   * carries the sliding TTL like {@link set}.
+   * carries the sliding TTL like {@link set}; a cart emptied by the
+   * decrement is deleted outright (an empty Lua table can't round-trip
+   * through cjson as a JSON array).
    *
    * Deduplicated by `orderId`: the first delivery claims a
    * `cart:order-processed:{orderId}` marker (same TTL) inside the same
@@ -189,7 +195,13 @@ for i = 3, #ARGV - 1, 2 do
     end
   end
 end
-redis.call("SET", KEYS[1], cjson.encode(cart), "EX", ARGV[2])
+if #cart.items == 0 then
+  -- an emptied Lua table would encode back as "items":{} (object), not
+  -- [] — delete the key instead; missing reads as an empty cart anyway
+  redis.call("DEL", KEYS[1])
+else
+  redis.call("SET", KEYS[1], cjson.encode(cart), "EX", ARGV[2])
+end
 return 1
 `;
 
@@ -213,7 +225,14 @@ export class RedisCartRepository implements CartRepository {
       return { status: "missing" };
     }
     try {
-      return { status: "ok", cart: JSON.parse(raw) as CartData };
+      const parsed = JSON.parse(raw) as CartData;
+      // Structurally-foreign payload — e.g. `"items":{}` written by an
+      // emptied Lua table. It parses fine but isn't a cart; treat as
+      // corrupt so readers take their usual consume-and-delete path.
+      if (!Array.isArray(parsed?.items)) {
+        return { status: "corrupt" };
+      }
+      return { status: "ok", cart: parsed };
     } catch {
       // Corrupt payload (e.g. written by an older version) — the key exists
       // but reads as an empty cart; MergeCart still consumes (deletes) it

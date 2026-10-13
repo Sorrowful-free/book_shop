@@ -1,0 +1,22 @@
+{
+  "name": "@book-shop/web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Nuxt SSR storefront — catalog, cart, checkout, orders, admin books (HTTP :3001)",
+  "scripts": {
+    "dev": "bunx --bun nuxt dev",
+    "build": "bunx --bun nuxt build",
+    "prepare": "bunx --bun nuxt prepare",
+    "typecheck": "bunx --bun nuxt prepare && bunx --bun nuxt typecheck",
+    "start": "bun .output/server/index.mjs"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "6.14.0",
+    "nuxt": "4.6.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vue-tsc": "3.3.12"
+  }
+}

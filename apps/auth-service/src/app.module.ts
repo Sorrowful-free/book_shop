@@ -165,6 +165,7 @@ export class AppModule implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     await this.seedAdmin();
+    await this.seedEmployer();
     // in-process outbox poller — publishes at-least-once; a dead broker
     // only delays delivery, never blocks RPCs (spec §4)
     this.relay.start();
@@ -184,21 +185,61 @@ export class AppModule implements OnModuleInit, OnModuleDestroy {
       password: env("SEED_ADMIN_PASSWORD", "admin")
     });
   }
+
+  /**
+   * Optional employer seed (spec 06): only when SEED_EMPLOYER_USER_NAME is
+   * set — no default, an unset env means no employer account is created.
+   * SEED_EMPLOYER_PASSWORD is then required (fail fast).
+   */
+  private async seedEmployer(): Promise<void> {
+    const userName = env("SEED_EMPLOYER_USER_NAME", "");
+    if (userName === "") {
+      return;
+    }
+    await seedEmployerUser(this.prisma, {
+      userName,
+      password: env("SEED_EMPLOYER_PASSWORD")
+    });
+  }
 }
 
 /**
- * Idempotent admin seeding (spec §3/§7): an existing admin is left
- * untouched — and the argon2 hash is computed lazily ONLY when the user has
- * to be created (F-A2), so a warm boot doesn't pay ~50ms of CPU for a
- * discarded value. `hash` is injectable so the laziness is testable without
- * a module mock (a global `mock.module` would leak into other test files
- * sharing the process).
+ * Idempotent seeding (spec §3/§7; role-parametrized for the optional employer
+ * seed of spec 06): an existing user is left untouched — and the argon2 hash
+ * is computed lazily ONLY when the user has to be created (F-A2), so a warm
+ * boot doesn't pay ~50ms of CPU for a discarded value. `hash` is injectable
+ * so the laziness is testable without a module mock (a global `mock.module`
+ * would leak into other test files sharing the process).
  */
 export async function seedAdminUser(
   prisma: Pick<PrismaClient, "user">,
   options: {
     userName: string;
     password: string;
+    hash?: (password: string) => Promise<string>;
+  }
+): Promise<void> {
+  await seedUser(prisma, { ...options, role: "ADMIN" });
+}
+
+/** Same idempotent seeding as the admin, but with role EMPLOYER (spec 06). */
+export async function seedEmployerUser(
+  prisma: Pick<PrismaClient, "user">,
+  options: {
+    userName: string;
+    password: string;
+    hash?: (password: string) => Promise<string>;
+  }
+): Promise<void> {
+  await seedUser(prisma, { ...options, role: "EMPLOYER" });
+}
+
+async function seedUser(
+  prisma: Pick<PrismaClient, "user">,
+  options: {
+    userName: string;
+    password: string;
+    role: "ADMIN" | "EMPLOYER";
     hash?: (password: string) => Promise<string>;
   }
 ): Promise<void> {
@@ -209,6 +250,6 @@ export async function seedAdminUser(
   await prisma.user.upsert({
     where: { userName: options.userName },
     update: {},
-    create: { userName: options.userName, passwordHash, role: "ADMIN" }
+    create: { userName: options.userName, passwordHash, role: options.role }
   });
 }

@@ -46,7 +46,11 @@ bun run start
 ```
 
 The admin user is seeded at startup from `SEED_ADMIN_*` env
-(defaults `admin`/`admin`). Registration events are published to Kafka
+(defaults `admin`/`admin`). An **employer** account can additionally be seeded
+via `SEED_EMPLOYER_USER_NAME` + `SEED_EMPLOYER_PASSWORD` (spec 06) — there are
+no defaults: when the name is unset, no employer is created; when it is set,
+the password is required. Both seeds are idempotent (existing users are left
+untouched). Registration events are published to Kafka
 (`auth.user.events`, `auth.user.registered`) through the transactional
 outbox (`outbox` table + `OutboxRelay`) — the service boots and serves
 RPCs even when the broker is down.

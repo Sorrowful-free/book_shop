@@ -987,7 +987,9 @@ describe("RedisCartRepository (fake RedisLike)", () => {
      * Test double for the decrement Lua script — re-implements its
      * semantics in JS (claim the orderId marker via SET … NX first —
      * a repeat exits early; missing/corrupt → 0; otherwise decrement
-     * pairs, remove <= 0, rewrite with SET … EX).
+     * pairs, remove <= 0, rewrite with SET … EX — or DEL the key when
+     * the cart came out empty, like the script does to avoid cjson's
+     * `"items":{}` object encoding).
      */
     async eval(
       script: string,
@@ -1032,9 +1034,13 @@ describe("RedisCartRepository (fake RedisLike)", () => {
           cart.items[index].amount = remaining;
         }
       }
-      const value = JSON.stringify(cart);
-      this.setCalls.push({ key, value, mode: "EX", seconds: ttlSec });
-      this.values.set(key, value);
+      if (cart.items.length === 0) {
+        this.values.delete(key);
+      } else {
+        const value = JSON.stringify(cart);
+        this.setCalls.push({ key, value, mode: "EX", seconds: ttlSec });
+        this.values.set(key, value);
+      }
       return 1;
     }
 
@@ -1168,12 +1174,23 @@ describe("RedisCartRepository (fake RedisLike)", () => {
     expect(JSON.parse(redis.values.get("cart:user:u1")!)).toEqual({
       items: [{ bookId: "b1", amount: 1 }]
     });
-    // a different orderId is not deduplicated
+    // a different orderId is not deduplicated — and emptying the cart
+    // DELs the key (cjson would encode an emptied table as `"items":{}`,
+    // which proto `repeated` can't serialize — web regression)
     await repo.decrementItems("cart:user:u1", goods, 60, "order-2");
-    expect(JSON.parse(redis.values.get("cart:user:u1")!)).toEqual({
-      items: []
-    });
+    expect(redis.values.has("cart:user:u1")).toBe(false);
     expect(redis.values.get("cart:order-processed:order-2")).toBe("1");
+  });
+
+  it("lookup treats a parsed doc with non-array items as corrupt", async () => {
+    const redis = new FakeRedis();
+    // what the decrement script used to write for an emptied cart
+    redis.values.set("cart:guest:x", '{"items":{}}');
+    const repo = new RedisCartRepository(redis);
+    expect(await repo.lookup("cart:guest:x")).toEqual({
+      status: "corrupt"
+    });
+    expect(await repo.get("cart:guest:x")).toBeNull();
   });
 
   it("decrementItems no-ops on missing/corrupt keys and empty goods", async () => {

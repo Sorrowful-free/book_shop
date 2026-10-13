@@ -431,6 +431,25 @@ describe("cart-service e2e (real redis + kafka)", () => {
     });
     const final = await call(cart.getCart({}, bearer(token)));
     expect(final.items).toEqual([{ bookId: "book-1", amount: 2 }]);
+
+    // Buying out the last position empties the cart — the key must be
+    // deleted, not rewritten with a cjson `{}` items object (that shape
+    // parsed fine but failed proto `repeated` serialization → 500s on
+    // GET /cart at the gateway).
+    const lastOrder: OrderCreatedPayload = {
+      orderId: randomUUID(),
+      userId,
+      goods: [good("book-1", 2)],
+      totalPrice: 20
+    };
+    await producer.send({
+      topic: KAFKA_TOPICS.orderOrderEvents,
+      messages: [orderEvent(lastOrder)]
+    });
+    await waitFor(async () => {
+      const c = await call(cart.getCart({}, bearer(token)));
+      return c.items.length === 0;
+    });
   }, 60_000);
 });
 

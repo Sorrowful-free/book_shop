@@ -7,8 +7,8 @@ implementation.
 
 | App              | Stack              | Port  | Storage             | Status  |
 | ---------------- | ------------------ | ----- | ------------------- | ------- |
-| `web`            | Nuxt (Vue SSR)     | 3001  | —                   | planned |
-| `api-gateway`    | NestJS (HTTP REST) | 3000  | Redis (denylist read) | planned |
+| `web`            | Nuxt (Vue SSR)     | 3001  | —                   | implemented |
+| `api-gateway`    | NestJS (HTTP REST) | 3000  | Redis (denylist read) | implemented |
 | `auth-service`   | NestJS (gRPC)      | 50051 | PostgreSQL `auth_db` + Redis (denylist write) | implemented |
 | `catalog-service`| NestJS (gRPC)      | 50052 | PostgreSQL `catalog_db` + Redis (denylist read) | implemented |
 | `cart-service`   | NestJS (gRPC)      | 50053 | Redis (carts + denylist read) | implemented |
