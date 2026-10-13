@@ -82,3 +82,17 @@ export interface ApiErrorBody {
   message: string | string[];
   error?: string;
 }
+
+/**
+ * Unwrap a `$fetch`/`useFetch` error into a display string: the gateway
+ * body lands on `error.data`, where `message` is a string or a validation
+ * array (joined with ", "). Anything else yields `fallback`.
+ */
+export function apiErrorMessage(e: unknown, fallback: string): string {
+  const message = (e as { data?: { message?: string | string[] } })?.data
+    ?.message;
+  if (Array.isArray(message)) {
+    return message.join(", ");
+  }
+  return message ?? fallback;
+}

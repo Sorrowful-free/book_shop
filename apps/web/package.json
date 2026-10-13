@@ -9,6 +9,7 @@
     "build": "bunx --bun nuxt build",
     "prepare": "bunx --bun nuxt prepare",
     "typecheck": "bunx --bun nuxt prepare && bunx --bun nuxt typecheck",
+    "smoke": "bun test/bff-smoke.mjs",
     "start": "bun .output/server/index.mjs"
   },
   "dependencies": {

@@ -8,7 +8,7 @@ const { user } = useSession();
 const isAdmin = computed(() => user.value?.role === "ADMIN");
 
 const route = useRoute();
-const LIMIT = 20;
+const LIMIT = 12;
 const page = computed(() => parsePage(route.query.page));
 const searchQuery = computed(() =>
   typeof route.query.query === "string" && route.query.query !== ""
@@ -64,14 +64,6 @@ function openEdit(book: RestBook) {
   modalOpen.value = true;
 }
 
-function messageOf(e: unknown): string {
-  const message = (e as { data?: { message?: string | string[] } })?.data
-    ?.message;
-  return Array.isArray(message)
-    ? message.join(", ")
-    : (message ?? "Request failed.");
-}
-
 async function save(payload: Record<string, unknown>) {
   try {
     if (editing.value) {
@@ -85,7 +77,7 @@ async function save(payload: Record<string, unknown>) {
     modalOpen.value = false;
     await refresh();
   } catch (e) {
-    formError.value = messageOf(e);
+    formError.value = apiErrorMessage(e, "Request failed.");
   }
 }
 
@@ -100,7 +92,7 @@ async function remove(book: RestBook) {
     await $fetch(`/api/books/${book.bookId}`, { method: "DELETE" });
     await refresh();
   } catch (e) {
-    actionError.value = messageOf(e);
+    actionError.value = apiErrorMessage(e, "Request failed.");
   }
 }
 
@@ -110,7 +102,7 @@ async function restore(book: RestBook) {
     await $fetch(`/api/books/${book.bookId}/restore`, { method: "POST" });
     await refresh();
   } catch (e) {
-    actionError.value = messageOf(e);
+    actionError.value = apiErrorMessage(e, "Request failed.");
   }
 }
 </script>

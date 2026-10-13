@@ -70,3 +70,8 @@ bypassed.
 Colocated `*.spec.ts` files cover only pure helpers (`app/utils/*`,
 `server/utils/proxy.ts`) — they have no nuxt/`#imports` dependencies and run
 under the repo-wide `bun test`.
+
+`bun --filter @book-shop/web smoke` runs `test/bff-smoke.mjs` (not a spec
+file): it boots `nuxt dev` against a stub gateway and asserts the SSR cookie
+relay end-to-end — rotated `set-cookie` after silent refresh reaching the
+browser, no anonymous guest-cart minting, login cookie relay.

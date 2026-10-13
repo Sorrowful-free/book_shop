@@ -20,11 +20,7 @@ async function submit() {
     await Promise.all([refreshUser(), refreshCart()]);
     await navigateTo("/");
   } catch (e) {
-    const message = (e as { data?: { message?: string | string[] } })?.data
-      ?.message;
-    error.value = Array.isArray(message)
-      ? message.join(", ")
-      : (message ?? "Login failed — check your credentials.");
+    error.value = apiErrorMessage(e, "Login failed — check your credentials.");
   } finally {
     submitting.value = false;
   }

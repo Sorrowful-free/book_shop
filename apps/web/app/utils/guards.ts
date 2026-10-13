@@ -6,8 +6,8 @@
 
 import type { RestUser } from "./api";
 
-/** Roles allowed into /admin/* — mirrors the gateway role matrix (spec 05 §2). */
-export const ADMIN_ROLES = ["ADMIN", "EMPLOYER"] as const;
+/** Staff roles allowed into /admin/*; mirrors the gateway role matrix (spec 05 §2). */
+export const STAFF_ROLES = ["ADMIN", "EMPLOYER"] as const;
 
 /** `auth` middleware: unauthenticated → /login. */
 export function resolveAuthRedirect(
@@ -20,7 +20,7 @@ export function resolveAuthRedirect(
 export function resolveAdminRedirect(
   user: RestUser | null | undefined
 ): string | null {
-  if (user && (ADMIN_ROLES as readonly string[]).includes(user.role)) {
+  if (user && (STAFF_ROLES as readonly string[]).includes(user.role)) {
     return null;
   }
   return "/";

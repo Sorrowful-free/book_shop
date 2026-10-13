@@ -24,11 +24,7 @@ async function submit() {
     await Promise.all([refreshUser(), refreshCart()]);
     await navigateTo("/");
   } catch (e) {
-    const message = (e as { data?: { message?: string | string[] } })?.data
-      ?.message;
-    error.value = Array.isArray(message)
-      ? message.join(", ")
-      : (message ?? "Registration failed — please try again.");
+    error.value = apiErrorMessage(e, "Registration failed — please try again.");
   } finally {
     submitting.value = false;
   }

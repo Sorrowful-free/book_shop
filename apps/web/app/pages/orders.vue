@@ -29,11 +29,10 @@ async function act(orderId: string, action: "pay" | "cancel") {
     await $fetch(`/api/orders/${orderId}/${action}`, { method: "POST" });
     await refresh();
   } catch (e) {
-    const message = (e as { data?: { message?: string | string[] } })?.data
-      ?.message;
-    actionError.value = Array.isArray(message)
-      ? message.join(", ")
-      : (message ?? `Could not ${action} the order — please try again.`);
+    actionError.value = apiErrorMessage(
+      e,
+      `Could not ${action} the order — please try again.`
+    );
   } finally {
     acting.value = null;
   }

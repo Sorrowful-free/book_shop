@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { user, isLoggedIn, isAdmin, cartCount, logout } = useSession();
+const { user, isLoggedIn, isStaff, cartCount, logout } = useSession();
 const route = useRoute();
 const search = ref(
   typeof route.query.query === "string" ? route.query.query : ""
@@ -58,7 +58,7 @@ function submitSearch() {
             Orders
           </NuxtLink>
           <NuxtLink
-            v-if="isAdmin"
+            v-if="isStaff"
             to="/admin/books"
             class="hover:text-indigo-700"
           >

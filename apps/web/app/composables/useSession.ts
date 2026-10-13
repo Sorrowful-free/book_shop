@@ -10,10 +10,10 @@ export function useSession() {
   const cart = useState<EnrichedCart | null>("cart", () => null);
 
   const isLoggedIn = computed(() => user.value !== null);
-  const isAdmin = computed(
+  const isStaff = computed(
     () =>
       !!user.value &&
-      (ADMIN_ROLES as readonly string[]).includes(user.value.role)
+      (STAFF_ROLES as readonly string[]).includes(user.value.role)
   );
   const cartCount = computed(() => cartItemCount(cart.value?.items));
 
@@ -49,7 +49,7 @@ export function useSession() {
     user,
     cart,
     isLoggedIn,
-    isAdmin,
+    isStaff,
     cartCount,
     refreshUser,
     refreshCart,

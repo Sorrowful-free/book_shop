@@ -108,5 +108,7 @@ bun run db:generate        # prisma generate for every DB-backed service
 - e2e needing JWTs: tests generate an Ed25519 key pair with `jose` (or reuse
   auth-service `gen-keys`), inject `JWT_PUBLIC_KEY` into the service under
   test and sign test tokens directly — no auth-service dependency in tests
-- Role seeding: only `admin` is seeded; tests needing other roles insert
-  users directly into the DB (no role-management RPC by design)
+- Role seeding: `SEED_ADMIN_*` seeds `admin` (defaults admin/admin), plus an
+  optional employer via `SEED_EMPLOYER_USER_NAME`/`SEED_EMPLOYER_PASSWORD`;
+  tests needing other roles insert users directly into the DB (no
+  role-management RPC by design)

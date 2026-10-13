@@ -27,15 +27,6 @@ onMounted(() => {
   idempotencyKey.value = crypto.randomUUID();
 });
 
-function messageOf(e: unknown): string {
-  const data = (e as { data?: { message?: string | string[] } })?.data;
-  const message = data?.message;
-  if (Array.isArray(message)) {
-    return message.join(", ");
-  }
-  return message ?? "Something went wrong — please try again.";
-}
-
 async function placeOrder() {
   if (!idempotencyKey.value) {
     idempotencyKey.value = crypto.randomUUID();
@@ -49,7 +40,10 @@ async function placeOrder() {
     });
     await refreshCart();
   } catch (e) {
-    flowError.value = messageOf(e);
+    flowError.value = apiErrorMessage(
+      e,
+      "Something went wrong — please try again."
+    );
   } finally {
     placing.value = false;
   }
@@ -65,7 +59,10 @@ async function pay() {
     await $fetch(`/api/orders/${order.value.orderId}/pay`, { method: "POST" });
     await navigateTo("/orders");
   } catch (e) {
-    flowError.value = messageOf(e);
+    flowError.value = apiErrorMessage(
+      e,
+      "Something went wrong — please try again."
+    );
   } finally {
     paying.value = false;
   }
