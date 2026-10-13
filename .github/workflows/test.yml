@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -27,6 +27,9 @@ jobs:
 
       - name: Typecheck
         run: bun run typecheck
+
+      - name: Start infra
+        run: docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka kafka-init
 
       - name: Run tests
         run: bun test

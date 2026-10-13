@@ -7,9 +7,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "db:generate": "bun node_modules/prisma/build/index.js generate",
-    "db:migrate": "bun node_modules/prisma/build/index.js migrate dev",
-    "db:deploy": "bun node_modules/prisma/build/index.js migrate deploy",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "bun run prisma/seed.ts",
     "gen-keys": "bun run scripts/gen-keys.ts",
     "start": "bun run src/main.ts"

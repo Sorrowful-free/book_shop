@@ -40,8 +40,8 @@ are deleted every `REFRESH_TOKEN_SWEEP_INTERVAL_SEC` (default 1 hour).
 ```bash
 bun run infra:up                       # postgres + redis + kafka
 cd apps/auth-service
-bun node_modules/prisma/build/index.js migrate deploy
-bun node_modules/prisma/build/index.js generate
+bun run db:deploy
+bun run db:generate
 bun run start
 ```
 
