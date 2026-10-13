@@ -1,14 +1,13 @@
 import "reflect-metadata";
 import { describe, expect, it, mock } from "bun:test";
 import { status } from "@grpc/grpc-js";
-import type { JwtVerifier } from "@book-shop/common";
+import { requestValidationPipe, type JwtVerifier } from "@book-shop/common";
 import { AuthController } from "./auth.controller";
 import {
   GetUserDto,
   LoginDto,
   RefreshDto,
   RegisterDto,
-  requestValidationPipe,
   RevokeTokenDto,
   ValidateTokenDto
 } from "./auth.dto";

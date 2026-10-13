@@ -2,14 +2,14 @@ import "reflect-metadata";
 import { describe, expect, it } from "bun:test";
 import { status } from "@grpc/grpc-js";
 import { RpcException } from "@nestjs/microservices";
+import { requestValidationPipe } from "@book-shop/common";
 import {
   AddItemDto,
   ClearCartDto,
   GetCartDto,
   MergeCartDto,
   RemoveItemDto,
-  UpdateItemDto,
-  requestValidationPipe
+  UpdateItemDto
 } from "./dto";
 
 const GUEST_ID = "3f6a1d2e-9b8c-4e5a-a7b6-c5d4e3f2a1b0";

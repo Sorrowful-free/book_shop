@@ -5,6 +5,7 @@ import {
   authorizationFromMetadata,
   GRPC_METADATA_KEYS,
   JwtVerifier,
+  requestValidationPipe,
   type UserContext
 } from "@book-shop/common";
 import {
@@ -21,8 +22,7 @@ import {
   GetCartDto,
   MergeCartDto,
   RemoveItemDto,
-  UpdateItemDto,
-  requestValidationPipe
+  UpdateItemDto
 } from "./dto";
 
 /**

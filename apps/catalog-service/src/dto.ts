@@ -1,6 +1,3 @@
-import { ValidationPipe } from "@nestjs/common";
-import { status } from "@grpc/grpc-js";
-import { RpcException } from "@nestjs/microservices";
 import { Type } from "class-transformer";
 import {
   ArrayNotEmpty,
@@ -12,8 +9,7 @@ import {
   IsString,
   Max,
   Min,
-  ValidateNested,
-  type ValidationError
+  ValidateNested
 } from "class-validator";
 import type { catalogProto } from "@book-shop/contracts";
 import { MAX_LIMIT } from "./catalog.service";
@@ -21,11 +17,10 @@ import { MAX_LIMIT } from "./catalog.service";
 /**
  * Boundary validation for the gRPC surface (docs/specs/fixes/catalog-service.md
  * F-C3): the static shape of each request — required non-empty strings,
- * pagination bounds, integer sign — is checked by class-validator DTOs before
- * the domain service (and thus the repository) is reached. A violation maps
- * to RpcException INVALID_ARGUMENT; the top-level `code` mirrors the rpcError
- * pattern in catalog.service so grpc-js reads the wire status even when the
- * exception bypasses the RpcException serializer.
+ * pagination bounds, integer sign — is checked by class-validator DTOs via
+ * the shared `requestValidationPipe` (@book-shop/common) before the domain
+ * service (and thus the repository) is reached; a violation maps to
+ * RpcException INVALID_ARGUMENT.
  *
  * Domain rules stay in CatalogService: isbn uniqueness, stock-vs-reserved,
  * the dynamic year upper bound (current year + 1), reservation states, and
@@ -37,24 +32,6 @@ import { MAX_LIMIT } from "./catalog.service";
  * non-empty strings therefore double as "not the proto default", and `offset`
  * is optional in the DTO with the service normalizing it to 0.
  */
-function describeErrors(errors: ValidationError[]): string[] {
-  // Nested errors (@ValidateNested on items) land in `children` — flatten.
-  return errors.flatMap((error) => [
-    ...Object.values(error.constraints ?? {}),
-    ...(error.children?.length ? describeErrors(error.children) : [])
-  ]);
-}
-
-export const requestValidationPipe = new ValidationPipe({
-  transform: true,
-  exceptionFactory: (errors: ValidationError[]) => {
-    const message = describeErrors(errors).join("; ") || "invalid request";
-    return Object.assign(
-      new RpcException({ code: status.INVALID_ARGUMENT, message }),
-      { code: status.INVALID_ARGUMENT }
-    );
-  }
-});
 
 export class ListBooksDto implements catalogProto.ListBooksRequest {
   /** Absent means 0 — proto3 never serializes the default value. */

@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { describe, expect, it } from "bun:test";
 import { status } from "@grpc/grpc-js";
 import { RpcException } from "@nestjs/microservices";
+import { requestValidationPipe } from "@book-shop/common";
 import {
   CommitStockDto,
   CreateBookDto,
@@ -10,7 +11,6 @@ import {
   GetBooksByIdsDto,
   ListBooksDto,
   ReleaseStockDto,
-  requestValidationPipe,
   ReserveStockDto,
   RestoreBookDto,
   SearchBooksDto,

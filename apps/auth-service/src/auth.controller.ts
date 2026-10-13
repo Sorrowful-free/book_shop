@@ -4,6 +4,7 @@ import type { Metadata } from "@grpc/grpc-js";
 import {
   JwtVerifier,
   GRPC_METADATA_KEYS,
+  requestValidationPipe,
   type UserContext
 } from "@book-shop/common";
 import { authProto, UserRole } from "@book-shop/contracts";
@@ -12,7 +13,6 @@ import {
   LoginDto,
   RefreshDto,
   RegisterDto,
-  requestValidationPipe,
   RevokeTokenDto,
   ValidateTokenDto
 } from "./auth.dto";

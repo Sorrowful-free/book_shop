@@ -16,6 +16,7 @@ import { Ctx, Payload } from "@nestjs/microservices";
 import {
   GRPC_METADATA_KEYS,
   JwtVerifier,
+  requestValidationPipe,
   type UserContext
 } from "@book-shop/common";
 import { catalogProto } from "@book-shop/contracts";
@@ -41,7 +42,6 @@ import {
   GetBooksByIdsDto,
   ListBooksDto,
   ReleaseStockDto,
-  requestValidationPipe,
   ReserveStockDto,
   RestoreBookDto,
   SearchBooksDto,

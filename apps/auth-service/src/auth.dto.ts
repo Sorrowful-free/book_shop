@@ -6,48 +6,9 @@
 // the rules here deliberately mirror — not replace — its checks (same
 // regex, same message → no drift between the two).
 
-import { status } from "@grpc/grpc-js";
-import { ValidationPipe } from "@nestjs/common";
-import { RpcException } from "@nestjs/microservices";
-import {
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Matches,
-  type ValidationError
-} from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, Matches } from "class-validator";
 import type { authProto } from "@book-shop/contracts";
 import { USER_NAME_MESSAGE, USER_NAME_PATTERN } from "./auth.service";
-
-function constraintMessages(errors: ValidationError[]): string[] {
-  const messages: string[] = [];
-  for (const error of errors) {
-    if (error.constraints) {
-      messages.push(...Object.values(error.constraints));
-    }
-    if (error.children?.length) {
-      messages.push(...constraintMessages(error.children));
-    }
-  }
-  return messages;
-}
-
-/**
- * Shared request pipe: a malformed message dies here with INVALID_ARGUMENT
- * ({code, message} — the same RpcException convention as AuthService's
- * `grpcError`, top-level `code` included) before any domain logic runs.
- */
-export const requestValidationPipe = new ValidationPipe({
-  transform: true,
-  exceptionFactory: (errors: ValidationError[]) =>
-    Object.assign(
-      new RpcException({
-        code: status.INVALID_ARGUMENT,
-        message: constraintMessages(errors).join("; ") || "invalid request"
-      }),
-      { code: status.INVALID_ARGUMENT }
-    )
-});
 
 export class RegisterDto implements authProto.RegisterRequest {
   @Matches(USER_NAME_PATTERN, { message: USER_NAME_MESSAGE })
