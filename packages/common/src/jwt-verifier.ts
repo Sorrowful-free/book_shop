@@ -54,17 +54,19 @@ export class JwtVerifier {
       });
       // strict token typing: only access tokens authenticate bearer calls —
       // a refresh token (typ="refresh") or a typ-less token is rejected
-      // here, so a revoked-refresh replay can't act as an access token
+      // here, so a revoked-refresh replay can't act as an access token.
+      // jti is mandatory too: without it the denylist check below is a
+      // no-op and the token would be unrevocable.
       if (
         payload.typ !== "access" ||
         !payload.sub ||
-        typeof payload.role !== "string"
+        typeof payload.role !== "string" ||
+        typeof payload.jti !== "string"
       ) {
         return null;
       }
       if (
         this.options.denylist &&
-        typeof payload.jti === "string" &&
         (await this.options.denylist.isRevoked(payload.jti))
       ) {
         return null;
@@ -74,7 +76,7 @@ export class JwtVerifier {
         userName:
           typeof payload.user_name === "string" ? payload.user_name : "",
         role: payload.role as UserRole,
-        jti: typeof payload.jti === "string" ? payload.jti : undefined
+        jti: payload.jti
       };
     } catch {
       return null;

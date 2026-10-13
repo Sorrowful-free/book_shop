@@ -86,6 +86,19 @@ describe("JwtVerifier", () => {
     ).not.toBeNull();
   });
 
+  it("rejects an access token without a jti claim", async () => {
+    const { privateKey, publicKeyBase64 } = await makeKeys();
+    const verifier = new JwtVerifier({
+      publicKey: publicKeyBase64,
+      // a jti-less token can never match the denylist — accepting it
+      // would make it unrevocable
+      denylist: { isRevoked: async () => false }
+    });
+    expect(
+      await verifier.verify(await sign(privateKey, { jti: undefined }))
+    ).toBeNull();
+  });
+
   it("rejects a token without a typ claim", async () => {
     const { privateKey, publicKeyBase64 } = await makeKeys();
     const verifier = new JwtVerifier({ publicKey: publicKeyBase64 });

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Kafka, type Producer } from "kafkajs";
+import { Kafka, Partitioners, type Producer } from "kafkajs";
 import type { EventPublisher } from "@book-shop/common";
 import type { DomainEvent, EventType } from "@book-shop/contracts";
 
@@ -65,7 +65,12 @@ export class KafkaEventPublisher implements EventPublisher {
     }
     if (!this.connecting) {
       this.connecting = (async () => {
-        const producer = this.kafka.producer();
+        // LegacyPartitioner keeps the pre-v2 Java-compatible key hash and
+        // silences the KafkaJS v2 default-partitioner warning — message keys
+        // (userId) are deliberate, so we pin the partitioner explicitly.
+        const producer = this.kafka.producer({
+          createPartitioner: Partitioners.LegacyPartitioner
+        });
         await producer.connect();
         this.producer = producer;
         return producer;

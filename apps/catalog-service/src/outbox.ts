@@ -6,7 +6,7 @@
 
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { Kafka, type Producer } from "kafkajs";
+import { Kafka, Partitioners, type Producer } from "kafkajs";
 import { Prisma } from "./generated/prisma";
 import type { DomainEvent, EventType } from "@book-shop/contracts";
 import type { EventPublisher, OutboxRow, OutboxStore } from "@book-shop/common";
@@ -64,7 +64,11 @@ export class KafkaEventPublisher implements EventPublisher {
 
   constructor(brokers: string[], clientId = "catalog-service") {
     const kafka = new Kafka({ clientId, brokers });
-    this.producer = kafka.producer();
+    // LegacyPartitioner: pins the pre-v2 key hash (message keys like bookId
+    // are deliberate) and silences the KafkaJS v2 partitioner warning.
+    this.producer = kafka.producer({
+      createPartitioner: Partitioners.LegacyPartitioner
+    });
   }
 
   async publish(

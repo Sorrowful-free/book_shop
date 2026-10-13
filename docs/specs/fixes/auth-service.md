@@ -1,6 +1,6 @@
 # Fixes: auth-service
 
-> Статус: approved | Модуль: `apps/auth-service` (+ `packages/common` для
+> Статус: done | Модуль: `apps/auth-service` (+ `packages/common` для
 > общего загрузчика секретов)
 
 ## F-A1. GC для `refresh_tokens`

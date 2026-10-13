@@ -1,6 +1,6 @@
 # 01. auth-service
 
-> Статус: approved
+> Статус: implemented
 > Proto: `packages/contracts/proto/auth.proto`
 > Порт: `:50051` | Хранилище: PostgreSQL `auth_db` (user `auth_user`)
 

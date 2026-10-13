@@ -13,7 +13,7 @@ import {
 } from "@nestjs/microservices";
 import { Redis } from "ioredis";
 import { exportSPKI, generateKeyPair, SignJWT } from "jose";
-import { Kafka, type Producer } from "kafkajs";
+import { Kafka, Partitioners, type Producer } from "kafkajs";
 import { lastValueFrom, type Observable } from "rxjs";
 import {
   cartProto,
@@ -134,7 +134,10 @@ async function startApp(port: number): Promise<INestApplication> {
         clientId: "cart-service",
         brokers: (process.env.KAFKA_BROKERS ?? KAFKA_BROKERS).split(",")
       },
-      consumer: { groupId: "cart-service" }
+      consumer: { groupId: "cart-service" },
+      // Mirrors main.ts: ServerKafka's internal reply producer needs an
+      // explicit partitioner to stay quiet under KafkaJS v2.
+      producer: { createPartitioner: Partitioners.LegacyPartitioner }
     }
   });
   await app.startAllMicroservices();
@@ -171,7 +174,9 @@ describe("cart-service e2e (real redis + kafka)", () => {
     ({ proxy, svc: cart } = grpcClient("127.0.0.1:50053"));
     redis = new Redis(REDIS_URL);
     const kafka = new Kafka({ clientId: "cart-e2e", brokers: [KAFKA_BROKERS] });
-    producer = kafka.producer();
+    producer = kafka.producer({
+      createPartitioner: Partitioners.LegacyPartitioner
+    });
     await producer.connect();
   }, 60_000);
 

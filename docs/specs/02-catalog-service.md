@@ -1,6 +1,6 @@
 # 02. catalog-service
 
-> Статус: approved
+> Статус: implemented
 > Proto: `packages/contracts/proto/catalog.proto`
 > Порт: `:50052` | Хранилище: PostgreSQL `catalog_db` (user `catalog_user`)
 

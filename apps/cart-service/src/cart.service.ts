@@ -67,9 +67,16 @@ export class CartService {
     caller: UserContext | null
   ): Promise<cartProto.Cart> {
     const key = this.resolveKey(request.cartId, caller);
-    const cart = await this.deps.repository.get(key);
+    const found = await this.deps.repository.lookup(key);
+    if (found.status === "corrupt") {
+      // Consume the unreadable key instead of renewing its sliding TTL —
+      // an EXPIRE would keep garbage alive forever. Same "corrupt is
+      // consumed" contract as MergeCart (spec F-K1).
+      await this.deps.repository.delete(key);
+      return this.toProtoCart(null);
+    }
     await this.renewTtl(key);
-    return this.toProtoCart(cart);
+    return this.toProtoCart(found.status === "ok" ? found.cart : null);
   }
 
   async addItem(

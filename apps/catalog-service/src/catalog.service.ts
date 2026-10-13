@@ -75,11 +75,20 @@ const MAX_PRICE = 99_999_999.99;
 /** int4 bound — books.stock and the aggregated reservation amount (F-C2). */
 const MAX_INT32 = 2_147_483_647;
 
-function rpcError(code: status, message: string): RpcException {
+function rpcError(
+  code: status,
+  message: string,
+  details?: Record<string, unknown>
+): RpcException {
   // Expose the grpc status on the exception itself too — some tests (and
   // grpc-js error mapping) read `error.code` directly, others read the
-  // RpcException payload via `getError().code`.
-  return Object.assign(new RpcException({ code, message }), { code });
+  // RpcException payload via `getError().code`. `details` stays inside the
+  // payload (machine-readable extra data, e.g. failing book ids) — the
+  // top-level grpc-js `details` slot is the human-readable message string.
+  return Object.assign(
+    new RpcException({ code, message, ...(details ? { details } : {}) }),
+    { code }
+  );
 }
 
 function toTimestamp(date: Date): Timestamp {
@@ -358,12 +367,16 @@ export class CatalogService {
       if (result.missing.length > 0) {
         throw rpcError(
           status.NOT_FOUND,
-          `books not found: ${result.missing.join(", ")}`
+          `books not found: ${result.missing.join(", ")}`,
+          { missingBookIds: result.missing }
         );
       }
+      // spec §2: the unavailable book_ids travel in structured details so
+      // order-service can map them back to cart positions
       throw rpcError(
         status.FAILED_PRECONDITION,
-        `books unavailable for reservation: ${result.unavailable.join(", ")}`
+        `books unavailable for reservation: ${result.unavailable.join(", ")}`,
+        { unavailableBookIds: result.unavailable }
       );
     }
     return {

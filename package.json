@@ -13,6 +13,8 @@
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
     "infra:ps": "docker compose -f infra/docker-compose.yml ps",
     "test": "bun test",
+    "test:unit": "bun test src",
+    "test:e2e": "bun test e2e",
     "lint": "eslint \"{apps,packages}/**/*.{ts,tsx}\"",
     "format": "prettier --write \"{apps,packages}/**/*.{ts,tsx,json,md,yml}\"",
     "proto:lint": "buf lint packages/contracts",

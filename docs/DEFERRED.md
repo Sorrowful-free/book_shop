@@ -2,25 +2,15 @@
 
 Известные проблемы и улучшения, которые **осознанно отложены**. Каждая запись:
 что, почему отложено, когда возвращаться. Не баги — весь реализованный функционал
-зелёный (`340/340` тестов), это качество/поддерживаемость/эксплуатация.
+зелёный (`342/342` тестов), это качество/поддерживаемость/эксплуатация.
+
+> Ревизия 2026-10: T1/T2/T3-part, C3, C6, D1, G3, G5, G8 закрыты cleanup-коммитом
+> (test:unit/test:e2e скрипты, правила в AGENTS.md, partitioner, статусы спек).
+> Заодно исправлены: `ReserveStock` без `details` (spec §2), `JwtVerifier`
+> принимал access-токены без `jti` (неотзываемые), `getCart` продлевал TTL
+> corrupt-ключа, путь к `gen-keys` в `.env.example` catalog/cart.
 
 ## Тесты / CI
-
-### T1. Разделить `bun test` на unit и e2e
-Сейчас единый `bun test` требует живой инфры (postgres/redis/kafka) — e2e
-падают без неё. Для CI и локальных unit-прогонов нужны отдельные скрипты,
-например `test:unit` (`src/**/*.spec.ts`) и `test:e2e` (`apps/*/test/`),
-плюс `infra:up` перед e2e в CI.
-**Когда:** при настройке CI или когда unit-прогоны начнут раздражать.
-
-### T2. `mock.module` — глобальная утечка между тест-файлами
-`bun test` шарит процесс и реестр модулей между файлами: `mock.module()` из
-одного `*.spec.ts` ломает код других файлов (уже кусались — мок
-`./password` выдавал `verifyPassword → false` и `isPasswordValid → true`
-в auth e2e). Правило: **не использовать `mock.module`**, предпочитать DI
-(как `seedAdminUser` с инъектируемым `hash`) или локальные спаи.
-**Когда:** добавить в `AGENTS.md` как правило написания тестов; пересмотреть
-при обновлении Bun (обещают per-file scoping).
 
 ### T3. `TimeoutNegativeWarning` в логах e2e
 В прогонах auth e2e видно `TimeoutNegativeWarning: -1791832353064 is a
@@ -46,14 +36,6 @@ lifecycle: `onModuleInit/Destroy`, `unref`'d `setInterval`, лог ошибок,
 **Когда:** с третьим sweeper'ом (order-service?) или при правках логики
 таймера, которую придётся портировать в два места.
 
-### C3. `@Ctx()` — обязательный декоратор для `metadata`
-Ловушка: как только в gRPC-методе есть `@Payload`, недекорированные
-аргументы перестают получать `Metadata` — `metadata` приходит `undefined`,
-caller = null, всё `UNAUTHENTICATED` (уже отловлено в auth). Сейчас страхует
-только ревью.
-**Когда:** документировать в `AGENTS.md`/`docs` для order-service и
-будущих сервисов; в идеале — кастомный lint-правило или codegen-чек.
-
 ### C4. `@IsUUID()` строже сервисного regex (cart)
 Boundary DTO принимает только RFC-valid UUID, сервисный `CART_ID_RE` —
 произвольный hex-формат (case-insensitive). Для v4-uuid'ов из `randomUUID()`
@@ -68,14 +50,6 @@ Boundary DTO принимает только RFC-valid UUID, сервисный 
 extractable, а public подавать отдельным env (он и так есть —
 `JWT_PUBLIC_KEY`).
 **Когда:** при hardening-итерации; для учебного проекта приемлемо.
-
-### C6. KafkaJS v2 default partitioner warning
-`KafkaJS v2.0.0 switched default partitioner` — предупреждение в логах.
-Семантика ключей у нас осознанная (`key = userId/bookId`), но partitioner
-сменился на murmur2 — для учебного проекта безразлично. Глушится
-`KAFKAJS_NO_PARTITIONER_WARNING=1` или явным `createPartitioner:
-Partitioners.LegacyPartitioner`.
-**Когда:** при оформлении логирования/деплоя, чтобы не мусорить в логах.
 
 ### C7. Детерминированный kafka-key не для всех событий
 `key = userId` покрывает `auth.user.*`, `key = bookId` — `catalog.book.*`.
@@ -99,7 +73,7 @@ kafka-ui). Сами сервисы запускаются локально `bun 
 create-объекте может быть лишняя запись лога/конфликт.
 **Когда:** низкий приоритет; вспомнить при HA-деплое auth.
 
-## Пробелы после фикс-раунда (что не доделано / не проверено)
+## Пробелы в покрытии
 
 ### G1. Refresh-token GC покрыт только unit-тестами
 `RefreshTokenSweeper.sweep` + `deleteExpiredRefreshTokens` проверены на
@@ -115,11 +89,21 @@ compose-сценария. Ошибки в wiring (неверное имя пер
 только ручной запуск.
 **Когда:** при настройке docker-secrets/деплоя (см. O1).
 
-### G3. Cart `mergeCart` e2e не покрывает corrupt-guest на Redis-уровне
-Unit покрывает `lookup → corrupt → setAndDelete`, e2e-кейс с реально
-битым JSON в Redis-ключе (`SET cart:guest:x "not-json"`) не написан —
-именно он был бы лучшей регрессией для F-K1.
-**Когда:** следующая правка cart e2e.
+### G7. `seedAdminUser` после рефакторинга потерял часть покрытия
+При уходе от `mock.module` спека теперь тестирует чистую функцию
+`seedAdminUser`, но **не** связку `AppModule.onModuleInit` → `seedAdmin()`
+→ `relay.start()` — т.е. то, что env-переменные `SEED_ADMIN_*` вообще
+дочитываются в функцию, ничто не проверяет.
+**Когда:** при правках `onModuleInit` — добавить тест на wiring.
+
+### G9. Cart Kafka-consumer не имеет e2e на реальном `order.order.created`
+Consumer подписан на `order.order.events` (group `cart-service`), но сам
+order-service не реализован — ничто не продюсит это событие, и e2e
+«publish → cart cleared» невозможен до появления продюсера (или тестового
+producer'а в самом e2e).
+**Когда:** order-service (план 04) или standalone-тест с KafkaProducer.
+
+## Процесс
 
 ### G4. Фоновые сабагенты не могли выполнить проверки
 Все три фикс-агента отчитались, что `bun test`/`lint`/`typecheck` в их
@@ -129,41 +113,19 @@ Unit покрывает `lookup → corrupt → setAndDelete`, e2e-кейс с �
 **Когда:** учитывать при планировании следующих агентов (order-service) —
 закладывать явный этап верификации у родителя.
 
-### G5. `bun.lock` правился вручную агентом
-Cart-агент добавил `class-validator`/`class-transformer` в `bun.lock`
-рукой (не `bun add`). `bun install` подтвердил «no changes» — правка
-оказалась корректной, но способ хрупкий: при расхождении хэшей локфайл
-мог лечь.
-**Когда:** правило для будущих агентов — зависимости только через
-`bun add`, локфайл не редактировать.
+## Проверено и оставлено как есть (ревизия 2026-10)
 
-### G6. `TimeoutNegativeWarning` не исправлен
-См. T3 — источник так и не найден, заметили случайно в логах e2e.
+Спорные места из ревью, по которым принято решение **не менять** код:
 
-### G7. `seedAdminUser` после рефакторинга потерял часть покрытия
-При уходе от `mock.module` спека теперь тестирует чистую функцию
-`seedAdminUser`, но **не** связку `AppModule.onModuleInit` → `seedAdmin()`
-→ `relay.start()` — т.е. то, что env-переменные `SEED_ADMIN_*` вообще
-дочитываются в функцию, ничто не проверяет.
-**Когда:** при правках `onModuleInit` — добавить тест на wiring.
-
-### G8. `docs/specs/fixes/` — спеки отработаны, статуса нет
-Все три fix-спеки (`docs/specs/fixes/*.md`) реализованы и проверены, но
-файлы не помечены как completed — висят без статуса, при повторном чтении
-можно подумать, что работа открыта.
-**Когда:** добавить `Status: done` в заголовки при ближайшем коммите.
-
-### G9. Cart Kafka-consumer не имеет e2e на реальном `order.order.created`
-Consumer подписан на `order.order.events` (group `cart-service`), но сам
-order-service не реализован — ничто не продюсит это событие, и e2e
-«publish → cart cleared» невозможен до появления продюсера (или тестового
-producer'а в самом e2e).
-**Когда:** order-service (план 04) или standalone-тест с KafkaProducer.
-
-## Документация
-
-### D1. Синхронизировать `AGENTS.md` с новыми правилами
-Добавить туда: запрет `mock.module` (T2), правило `@Ctx()` (C3),
-соглашение `resolveSecret`/`*_FILE`, правило `code` на `RpcException`.
-Сейчас это разбросано по комментариям в коде.
-**Когда:** перед стартом order-service — туда пойдёт новый сабагент.
+- **`UpdateBook` без единого поля → `book.updated` + bump `updated_at`.**
+  Осознанно: fix-спека F-C3 прямо требует «поведение как сейчас, не
+  регрессировать». Если когда-нибудь появится требование no-op — отдельная
+  спека и изменение контракта.
+- **Повторный `DeleteBook` → второй `book.deleted` в outbox.** Дубликат
+  безобиден: доставка at-least-once уже обязывает консьюмеров быть
+  идемпотентными, а спека не определяет ошибку для этого случая. Менять —
+  значит расширять контракт (FAILED_PRECONDITION) или молча подавлять
+  событие; оба варианта хуже статус-кво.
+- **`apps/catalog-service/test/helpers.ts` в `test/` вместе с e2e.** Это
+  unit-test kit, но `bun test` подбирает только `*.spec.ts` — файл никогда
+  не запустится как тест и не попадёт в `test:e2e`. Переезд не нужен.

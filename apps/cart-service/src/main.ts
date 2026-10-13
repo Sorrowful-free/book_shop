@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { config } from "dotenv";
 import { NestFactory } from "@nestjs/core";
 import { Transport, type MicroserviceOptions } from "@nestjs/microservices";
+import { Partitioners } from "kafkajs";
 import { cartProto } from "@book-shop/contracts";
 import { AppModule } from "./app.module";
 
@@ -38,7 +39,10 @@ async function bootstrap(): Promise<void> {
         clientId: "cart-service",
         brokers: (process.env.KAFKA_BROKERS ?? "localhost:29092").split(",")
       },
-      consumer: { groupId: "cart-service" }
+      consumer: { groupId: "cart-service" },
+      // ServerKafka spawns an internal producer for replies — pin the
+      // pre-v2 partitioner to silence the KafkaJS v2 warning.
+      producer: { createPartitioner: Partitioners.LegacyPartitioner }
     }
   });
   await app.startAllMicroservices();

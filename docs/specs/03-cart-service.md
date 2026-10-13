@@ -1,6 +1,6 @@
 # 03. cart-service
 
-> Статус: approved
+> Статус: implemented
 > Proto: `packages/contracts/proto/cart.proto`
 > Порт: `:50053` | Хранилище: Redis
 

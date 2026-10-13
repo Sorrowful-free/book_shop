@@ -4,6 +4,7 @@ import { UserRole } from "@book-shop/contracts";
 import {
   caller,
   catchGrpcError,
+  errorDetails,
   errorMentions,
   expectGrpcError,
   harness,
@@ -58,13 +59,16 @@ describe("ReserveStock", () => {
 
   it("returns NOT_FOUND for an unknown book id", async () => {
     const { service } = harness();
-    await expectGrpcError(
+    const error = await catchGrpcError(
       service.reserveStock(
         { items: [{ bookId: "missing", amount: 1 }] },
         CALLER
-      ),
-      status.NOT_FOUND
+      )
     );
+    expect((error as { code?: number }).code).toBe(status.NOT_FOUND);
+    // spec §2: the ids are machine-readable in error details, not just
+    // interpolated into the message
+    expect(errorDetails(error)?.missingBookIds).toEqual(["missing"]);
   });
 
   it("is all-or-nothing: one short position fails everything and names the ids", async () => {
@@ -84,7 +88,9 @@ describe("ReserveStock", () => {
       )
     );
     expect((error as { code?: number }).code).toBe(status.FAILED_PRECONDITION);
-    // spec §2: the unavailable book ids are surfaced in error details
+    // spec §2: the unavailable book ids are surfaced in error details —
+    // machine-readable, not just interpolated into the message
+    expect(errorDetails(error)?.unavailableBookIds).toEqual([short.id]);
     expect(errorMentions(error, short.id)).toBe(true);
 
     // nothing persisted — the healthy position stays fully available

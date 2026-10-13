@@ -32,9 +32,10 @@ export function guestCartKey(cartId: string): string {
 
 /**
  * Result of a raw cart read distinguishing the three storage states.
- * MergeCart needs the missing/corrupt split: an existing guest key is
- * deleted by the merge transaction even when its payload no longer parses
- * (corrupt contributes 0 items).
+ * The missing/corrupt split matters to readers that consume corrupt keys
+ * instead of touching them: MergeCart deletes an existing guest key whose
+ * payload no longer parses (corrupt contributes 0 items), GetCart deletes
+ * it rather than renewing its sliding TTL.
  */
 export type CartLookup =
   | { status: "ok"; cart: CartData }
@@ -47,7 +48,7 @@ export interface CartRepository {
   /**
    * Read a cart distinguishing "missing" (key absent/expired) from
    * "corrupt" (key present, payload unparseable). Prefer {@link get} unless
-   * the distinction matters — MergeCart is the current consumer.
+   * the distinction matters — GetCart and MergeCart are the consumers.
    */
   lookup(key: string): Promise<CartLookup>;
   /**

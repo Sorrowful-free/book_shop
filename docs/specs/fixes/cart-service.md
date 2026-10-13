@@ -1,6 +1,6 @@
 # Fixes: cart-service
 
-> Статус: approved | Модуль: `apps/cart-service` (+ опциональная правка
+> Статус: done | Модуль: `apps/cart-service` (+ опциональная правка
 > `packages/common` при наличии общих helpers)
 
 ## F-K1. MergeCart при битой guest-корзине

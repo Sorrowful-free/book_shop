@@ -287,6 +287,25 @@ describe("CartService.getCart", () => {
     expect(cart.items).toEqual([]);
     expect(cart.expiresAt).toBeUndefined();
   });
+
+  it("consumes a corrupt cart key instead of renewing its TTL", async () => {
+    const { service, repository } = harness();
+    const key = guestCartKey(GUEST_ID);
+    repository.setCorrupt(key);
+
+    const cart = await service.getCart({ cartId: GUEST_ID }, null);
+    expect(cart.items).toEqual([]);
+    expect(cart.expiresAt).toBeUndefined();
+
+    // corrupt payloads read as empty AND self-heal — renewing the sliding
+    // TTL would let an unreadable key linger forever
+    expect(repository.corruptKeys.has(key)).toBe(false);
+    expect(repository.carts.has(key)).toBe(false);
+    expect(repository.expiresFor(key)).toEqual([]);
+    expect(
+      repository.calls.some((c) => c.method === "delete" && c.key === key)
+    ).toBe(true);
+  });
 });
 
 describe("CartService.addItem", () => {

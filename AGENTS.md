@@ -27,7 +27,8 @@ Book shop — educational microservices showcase. Monorepo on **Bun workspaces**
 - Auth (defense in depth): every service verifies JWT itself — raw token in
   `authorization` gRPC metadata, EdDSA public key via `JwtVerifier`
   (`@book-shop/common`). Revoked token jtis live in a Redis denylist
-  (`auth:revoked:{jti}`, TTL = token exp) checked by the verifier.
+  (`auth:revoked:{jti}`, TTL = token exp) checked by the verifier — access
+  tokens without `jti` are rejected (they would be unrevocable).
   Service-to-service calls propagate `authorization`; `x-user-*` metadata
   fields are NOT used/trusted. Ownership checks are done in the owning
   service; role matrix additionally enforced at api-gateway
@@ -66,6 +67,8 @@ Every service/feature is implemented by a separate plan/subagent, in this order:
 bun install                # all workspaces
 bun run infra:up           # postgres + redis + kafka + kafka-ui
 bun test                   # all tests (bun test, colocated *.spec.ts + test/)
+bun run test:unit          # colocated *.spec.ts only — no infra needed
+bun run test:e2e           # <app>/test/*.e2e.spec.ts — needs `infra:up`
 bun run lint               # eslint
 bun run typecheck          # tsc --noEmit per workspace
 bun run proto:lint         # buf lint packages/contracts (needs buf CLI)
@@ -76,8 +79,22 @@ bun run db:generate        # prisma generate for every DB-backed service
 
 ## Conventions
 
-- Tests: `bun:test`, `*.spec.ts` colocated; e2e in `<app>/test/`
-- Env: per-app `.env` (gitignored), commit `.env.example`
+- Tests: `bun:test`, `*.spec.ts` colocated; e2e in `<app>/test/`.
+  **Never `mock.module`** — `bun test` shares the module registry across
+  files in one process, so a module mock leaks into unrelated specs. Use DI
+  (e.g. `seedAdminUser`'s injected `hash`) or local spies/fakes instead
+- Env: per-app `.env` (gitignored), commit `.env.example`. Every secret may
+  be supplied as `<NAME>` or `<NAME>_FILE` (path to a file — docker-secrets
+  convention); the file wins when both are set. Read them via
+  `resolveSecret` from `@book-shop/common`, never `process.env` directly
+- gRPC controllers: any handler taking `Metadata` MUST declare
+  `@Ctx() metadata?: Metadata` explicitly — once a `@Payload` is decorated,
+  undecorated parameters silently receive `undefined` (metadata lost →
+  everything UNAUTHENTICATED). See controllers in existing services
+- gRPC errors: throw `RpcException` via the local `rpcError` helper —
+  `{ code, message }` payload **plus** the same `code` assigned top-level
+  (grpc-js reads `error.code` when the exception escapes raw)
+- Dependencies: add only via `bun add` — never hand-edit `bun.lock`
 - Dev secrets in `infra/` are local-only, never reused in production
 - No MongoDB anywhere — PostgreSQL (**Prisma** ORM) + Redis only
 - e2e needing JWTs: tests generate an Ed25519 key pair with `jose` (or reuse

@@ -1,6 +1,6 @@
 # Fixes: catalog-service
 
-> Статус: approved | Модуль: `apps/catalog-service`
+> Статус: done | Модуль: `apps/catalog-service`
 
 ## F-C1. `TRUNCATE` в e2e без CASCADE
 

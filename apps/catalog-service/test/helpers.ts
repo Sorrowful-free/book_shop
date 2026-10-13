@@ -409,6 +409,22 @@ export async function expectGrpcError(
   expect(grpcCode(error)).toBe(expected);
 }
 
+/**
+ * Structured `details` carried inside the RpcException payload (spec §2 —
+ * e.g. `{ unavailableBookIds: [...] }` on ReserveStock failures). Reads the
+ * same error shapes as {@link grpcCode}.
+ */
+export function errorDetails(
+  error: unknown
+): Record<string, unknown> | undefined {
+  const err = error as {
+    details?: Record<string, unknown>;
+    error?: { details?: Record<string, unknown> };
+    getError?: () => { details?: Record<string, unknown> };
+  };
+  return err?.details ?? err?.error?.details ?? err?.getError?.()?.details;
+}
+
 /** Whether a thrown error mentions `text` in message or serialized details. */
 export function errorMentions(error: unknown, text: string): boolean {
   const message =
