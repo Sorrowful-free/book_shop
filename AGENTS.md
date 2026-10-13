@@ -77,6 +77,14 @@ bun run db:generate        # prisma generate for every DB-backed service
                            #  required before typecheck/tests)
 ```
 
+## Git
+
+- Only the user commits. The agent never runs `git commit`, `git rebase`, or
+  `git push` — it stages/prepares changes and reports; the user reviews and
+  commits. Exception: an explicit user request for a specific commit.
+- Commit messages: no tool attribution (no "Generated with", no Co-Authored-By
+  trailers), lowercase, one long descriptive subject line — match `git log`.
+
 ## Conventions
 
 - Tests: `bun:test`, `*.spec.ts` colocated; e2e in `<app>/test/`.
