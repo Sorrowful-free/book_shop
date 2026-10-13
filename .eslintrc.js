@@ -55,6 +55,15 @@ module.exports = {
       // test files may use the bun test runner (dev tooling only)
       files: ['**/*.spec.ts', '**/test/**/*.ts'],
       rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector:
+              "CallExpression[callee.object.name='mock'][callee.property.name='module']",
+            message:
+              'mock.module leaks across test files — use DI or local fakes (see AGENTS.md)',
+          },
+        ],
         'no-restricted-imports': [
           'error',
           {
