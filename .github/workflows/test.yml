@@ -29,7 +29,9 @@ jobs:
         run: bun run typecheck
 
       - name: Start infra
-        run: docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka kafka-init
+        run: |
+          docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka kafka-init
+          docker compose -f infra/docker-compose.yml wait kafka-init
 
       - name: Run tests
         run: bun test

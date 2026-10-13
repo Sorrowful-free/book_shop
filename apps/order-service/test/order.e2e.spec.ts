@@ -228,7 +228,14 @@ async function startApp(port: number): Promise<INestMicroservice> {
       }
     }
   );
-  await app.listen();
+  try {
+    await app.listen();
+  } catch (error) {
+    // Close whatever did start (onModuleInit runs during listen) so a failed
+    // start doesn't leak the bound port into later files in this process.
+    await app.close().catch(() => {});
+    throw error;
+  }
   return app;
 }
 

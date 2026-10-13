@@ -31,6 +31,30 @@ negative number. Timeout duration was set to 1` — похоже на kafkajs/Ne
 не влияет, источник не найден.
 **Когда:** при первом проявлении реальных таймаут-проблем в тестах.
 
+### T4. `(unnamed)`-фейлы в e2e = упавший `beforeAll`, почти всегда инфра
+bun репортит бросок из `beforeAll`/`afterAll` как `(fail) <describe> >
+(unnamed)` и **не считает** тесты describe в итоговом счётчике — поэтому
+прогон с упавшими хуками показывает меньше тестов (CI run 38399756517:
+419 вместо 446). Подтверждённые источники: `docker compose up --wait`
+помечает one-shot `kafka-init` «healthy» при старте, не при завершении →
+первый consumer получал `UNKNOWN_TOPIC_OR_PARTITION` (чинится `docker
+compose wait kafka-init` после up); недоступный Kafka →
+`KafkaJSConnectionError` в `startAllMicroservices`. Диагноз: сначала
+`docker compose ps` + healthcheck + лог kafka-init, потом код.
+**Когда:** пересмотреть, если появится `waitForInfra`-хелпер в e2e-хуках.
+
+### T5. e2e-файлы делят один процесс: утечки и порты влияют кросс-файлово
+Файлы e2e биндят реальные порты; cart TTL-дескрайб конфликтовал по :50083
+с catalog-стабом order.e2e — при падении cart-хука зомби-сервер держал
+порт и валил следующий файл (EADDRINUSE, CI run 38399756517). Частично
+снято: startApp в e2e теперь закрывает частично поднятое приложение при
+броске, порты разведены. Остаётся: тестовый consumer cart работает в
+боевой группе `cart-service` — параллельный dev-инстанс может забирать
+`order.order.created` у теста (флак по таймауту ожидания); test-consumer'ы
+уже уникальны (`catalog-e2e-*`, `order-e2e-*`), app-consumer — нет.
+**Когда:** если e2e начнут флакать при поднятых dev-сервисах — уникализиро-
+вать groupId приложения в тестах (`cart-service-${randomUUID()}`).
+
 ## Код / архитектура
 
 ### C2. Дублирование sweeper-паттерна

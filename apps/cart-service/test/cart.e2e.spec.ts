@@ -140,8 +140,15 @@ async function startApp(port: number): Promise<INestApplication> {
       producer: { createPartitioner: Partitioners.LegacyPartitioner }
     }
   });
-  await app.startAllMicroservices();
-  await app.init();
+  try {
+    await app.startAllMicroservices();
+    await app.init();
+  } catch (error) {
+    // A thrown start leaves the gRPC server bound — close what did start so
+    // the port doesn't leak into later files in this shared process.
+    await app.close().catch(() => {});
+    throw error;
+  }
   return app;
 }
 
@@ -434,8 +441,8 @@ describe("cart TTL (CART_TTL_SEC=1)", () => {
 
   beforeAll(async () => {
     process.env.CART_TTL_SEC = "1";
-    app = await startApp(50083);
-    ({ proxy, svc: cart } = grpcClient("127.0.0.1:50083"));
+    app = await startApp(50093);
+    ({ proxy, svc: cart } = grpcClient("127.0.0.1:50093"));
   }, 60_000);
 
   afterAll(async () => {
