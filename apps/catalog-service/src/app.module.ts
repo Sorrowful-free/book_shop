@@ -13,13 +13,14 @@ import {
 import Redis from "ioredis";
 import {
   JwtVerifier,
+  KafkaEventPublisher,
   OutboxRelay,
+  PrismaOutboxStore,
   RedisTokenDenylist,
   resolveSecret
 } from "@book-shop/common";
 import { CatalogController } from "./catalog.controller";
 import { CatalogService } from "./catalog.service";
-import { KafkaEventPublisher, PrismaOutboxStore } from "./outbox";
 import { PrismaCatalogRepository } from "./prisma.repository";
 import { PrismaService } from "./prisma.service";
 import { ReservationSweeper } from "./reservation-sweeper";
@@ -52,7 +53,11 @@ function envInt(key: string, fallback: number): number {
   providers: [
     PrismaService,
     PrismaCatalogRepository,
-    PrismaOutboxStore,
+    {
+      provide: PrismaOutboxStore,
+      useFactory: (prisma: PrismaService) => new PrismaOutboxStore(prisma),
+      inject: [PrismaService]
+    },
     {
       provide: CatalogService,
       useFactory: (repository: PrismaCatalogRepository) =>
@@ -91,12 +96,16 @@ function envInt(key: string, fallback: number): number {
     {
       provide: KafkaEventPublisher,
       useFactory: () =>
-        new KafkaEventPublisher(
-          envOr("KAFKA_BROKERS", "localhost:29092")
+        // key = bookId: all events for one book share a partition and
+        // stay ordered (spec §4)
+        new KafkaEventPublisher({
+          brokers: envOr("KAFKA_BROKERS", "localhost:29092")
             .split(",")
             .map((broker) => broker.trim())
-            .filter((broker) => broker.length > 0)
-        )
+            .filter((broker) => broker.length > 0),
+          clientId: "catalog-service",
+          keyField: "bookId"
+        })
     },
     {
       provide: OUTBOX_RELAY,

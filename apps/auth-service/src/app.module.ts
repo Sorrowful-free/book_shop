@@ -7,7 +7,9 @@ import { PrismaClient } from "./generated/prisma";
 import Redis from "ioredis";
 import {
   JwtVerifier,
+  KafkaEventPublisher,
   OutboxRelay,
+  PrismaOutboxStore,
   RedisTokenDenylist,
   resolveSecret,
   type OutboxStore
@@ -17,10 +19,9 @@ import { AuthService } from "./auth.service";
 import type { TokenDenylistWriter } from "./denylist";
 import { RedisTokenDenylistWriter } from "./denylist.redis";
 import { hashPassword } from "./password";
-import { KafkaEventPublisher } from "./publisher.kafka";
 import { RefreshTokenSweeper } from "./refresh-token-sweeper";
 import type { AuthRepository } from "./repository";
-import { PrismaAuthRepository, PrismaOutboxStore } from "./repository.prisma";
+import { PrismaAuthRepository } from "./repository.prisma";
 import { TokenService } from "./tokens";
 
 /** Injection tokens for interface-typed providers. */
@@ -113,9 +114,13 @@ function envInt(name: string, fallback: number): number {
     {
       provide: KafkaEventPublisher,
       useFactory: () =>
-        new KafkaEventPublisher(
-          env("KAFKA_BROKERS", "localhost:29092").split(",")
-        )
+        // key = userId: all events for one user share a partition and
+        // stay ordered (spec §4)
+        new KafkaEventPublisher({
+          brokers: env("KAFKA_BROKERS", "localhost:29092").split(","),
+          clientId: "auth-service",
+          keyField: "userId"
+        })
     },
     {
       provide: OutboxRelay,

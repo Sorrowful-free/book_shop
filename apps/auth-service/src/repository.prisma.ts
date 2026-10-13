@@ -5,7 +5,6 @@ import {
   type Role as PrismaRole
 } from "./generated/prisma";
 import type { UserRole } from "@book-shop/contracts";
-import type { OutboxRow, OutboxStore } from "@book-shop/common";
 import type {
   AuthRepository,
   NewRefreshToken,
@@ -88,40 +87,5 @@ export class PrismaAuthRepository implements AuthRepository {
       where: { expiresAt: { lt: cutoff } }
     });
     return count;
-  }
-}
-
-/**
- * OutboxStore over the prisma `outbox` table for OutboxRelay (spec §4).
- * Batch selection uses SELECT … FOR UPDATE SKIP LOCKED so concurrent relay
- * instances don't fight over the same rows (at-least-once is preserved
- * either way).
- */
-export class PrismaOutboxStore implements OutboxStore {
-  constructor(private readonly prisma: PrismaClient) {}
-
-  fetchUnpublished(limit: number): Promise<OutboxRow[]> {
-    return this.prisma.$transaction(
-      (tx) =>
-        tx.$queryRaw<OutboxRow[]>`
-        SELECT id, event_type AS "eventType", payload,
-               created_at AS "occurredAt"
-        FROM outbox
-        WHERE published_at IS NULL
-        ORDER BY created_at ASC
-        LIMIT ${limit}
-        FOR UPDATE SKIP LOCKED
-      `
-    );
-  }
-
-  async markPublished(ids: string[]): Promise<void> {
-    if (ids.length === 0) {
-      return;
-    }
-    await this.prisma.outbox.updateMany({
-      where: { id: { in: ids }, publishedAt: null },
-      data: { publishedAt: new Date() }
-    });
   }
 }
