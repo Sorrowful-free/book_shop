@@ -229,15 +229,44 @@ export class CartService {
   }
 
   /**
-   * Kafka `order.order.created` handler (spec §4): clears the user cart for
-   * `payload.userId`. Internal, unauthenticated, best-effort/idempotent.
+   * Kafka `order.order.created` handler (spec §4 + F-K4): removes only the
+   * PURCHASED positions from the user cart — whole-cart deletion would
+   * drop items added between checkout's GetCart and event delivery. Each
+   * `goods[]` amount decrements the position; `<= 0` removes it (cart's
+   * own "amount=0 removes" rule). Internal, unauthenticated, best-effort.
+   * Idempotent under at-least-once delivery: the decrement is deduplicated
+   * by `orderId`, so a redelivery is a no-op. Malformed payloads no-op
+   * rather than throw — and without an `orderId` there is nothing to
+   * dedup on, so the event cannot be applied safely at all.
    */
   async handleOrderCreated(payload: OrderCreatedPayload): Promise<void> {
     const userId = payload?.userId;
     if (typeof userId !== "string" || userId.length === 0) {
       return;
     }
-    await this.deps.repository.delete(userCartKey(userId));
+    const orderId = payload?.orderId;
+    if (typeof orderId !== "string" || orderId.length === 0) {
+      return;
+    }
+    const goods = Array.isArray(payload?.goods) ? payload.goods : [];
+    const items: CartItem[] = goods
+      .filter(
+        (item) =>
+          typeof item?.bookId === "string" &&
+          item.bookId.length > 0 &&
+          Number.isInteger(item?.amount) &&
+          item.amount > 0
+      )
+      .map((item) => ({ bookId: item.bookId, amount: item.amount }));
+    if (items.length === 0) {
+      return;
+    }
+    await this.deps.repository.decrementItems(
+      userCartKey(userId),
+      items,
+      this.deps.cartTtlSec,
+      orderId
+    );
   }
 
   /**

@@ -5,6 +5,7 @@ import { UserRole, type OrderCreatedPayload } from "@book-shop/contracts";
 import { CartService } from "./cart.service";
 import type {
   CartData,
+  CartItem,
   CartLookup,
   CartRepository,
   RedisLike,
@@ -20,7 +21,14 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface RepoCall {
-  method: "get" | "lookup" | "set" | "setAndDelete" | "delete" | "expire";
+  method:
+    | "get"
+    | "lookup"
+    | "set"
+    | "setAndDelete"
+    | "delete"
+    | "decrementItems"
+    | "expire";
   key: string;
 }
 
@@ -28,6 +36,8 @@ class InMemoryCartRepository implements CartRepository {
   carts = new Map<string, CartData>();
   /** Keys that exist but whose stored payload no longer parses. */
   corruptKeys = new Set<string>();
+  /** orderIds already applied — mirrors the Lua `SET … NX` marker. */
+  processedOrders = new Set<string>();
   calls: RepoCall[] = [];
   expirations: { key: string; ttlSec: number }[] = [];
 
@@ -92,6 +102,46 @@ class InMemoryCartRepository implements CartRepository {
     this.calls.push({ method: "delete", key });
     this.carts.delete(key);
     this.corruptKeys.delete(key);
+  }
+
+  async decrementItems(
+    key: string,
+    goods: CartItem[],
+    ttlSec: number,
+    orderId: string
+  ): Promise<void> {
+    this.calls.push({ method: "decrementItems", key });
+    // Mirrors the Lua path: empty goods short-circuits before the script
+    // even runs; otherwise the orderId marker is claimed first (a
+    // redelivery no-ops), then missing/corrupt keys no-op, and the
+    // rewrite carries the sliding TTL.
+    if (goods.length === 0) {
+      return;
+    }
+    if (this.processedOrders.has(orderId)) {
+      return;
+    }
+    this.processedOrders.add(orderId);
+    if (this.corruptKeys.has(key)) {
+      return;
+    }
+    const cart = this.carts.get(key);
+    if (!cart) {
+      return;
+    }
+    for (const item of goods) {
+      const index = cart.items.findIndex((i) => i.bookId === item.bookId);
+      if (index < 0) {
+        continue;
+      }
+      const remaining = cart.items[index].amount - item.amount;
+      if (remaining <= 0) {
+        cart.items.splice(index, 1);
+      } else {
+        cart.items[index].amount = remaining;
+      }
+    }
+    this.expirations.push({ key, ttlSec });
   }
 
   async expire(key: string, ttlSec: number): Promise<void> {
@@ -740,26 +790,80 @@ describe("sliding TTL", () => {
   });
 });
 
-describe("CartService.handleOrderCreated (order.order.created → ClearCart)", () => {
-  const payload = (userId: string) => ({
+describe("CartService.handleOrderCreated (order.order.created → decrement purchased positions, F-K4)", () => {
+  const payload = (
+    userId: string,
+    goods: OrderCreatedPayload["goods"] = []
+  ): OrderCreatedPayload => ({
     orderId: "order-1",
     userId,
-    goods: [],
+    goods,
     totalPrice: 0
   });
+  const good = (bookId: string, amount: number) => ({
+    bookId,
+    bookName: "b",
+    author: "a",
+    price: 1,
+    amount
+  });
 
-  it("deletes the user cart for payload.userId", async () => {
+  it("removes a fully purchased position, keeps the rest", async () => {
+    const { service, repository } = harness();
+    repository.carts.set(userCartKey("user-5"), {
+      items: [
+        { bookId: "b1", amount: 2 },
+        { bookId: "b2", amount: 1 }
+      ]
+    });
+    await service.handleOrderCreated(payload("user-5", [good("b1", 2)]));
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([
+      { bookId: "b2", amount: 1 }
+    ]);
+  });
+
+  it("decrements a partially purchased position (post-checkout additions survive)", async () => {
+    const { service, repository } = harness();
+    repository.carts.set(userCartKey("user-5"), {
+      items: [{ bookId: "b1", amount: 3 }]
+    });
+    await service.handleOrderCreated(payload("user-5", [good("b1", 2)]));
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([
+      { bookId: "b1", amount: 1 }
+    ]);
+  });
+
+  it("removes the position when the ordered amount exceeds the cart amount", async () => {
+    const { service, repository } = harness();
+    repository.carts.set(userCartKey("user-5"), {
+      items: [{ bookId: "b1", amount: 2 }]
+    });
+    await service.handleOrderCreated(payload("user-5", [good("b1", 5)]));
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([]);
+  });
+
+  it("is a no-op success when the user cart is absent", async () => {
+    const { service } = harness();
+    await service.handleOrderCreated(payload("no-such-user", [good("b1", 1)]));
+  });
+
+  it("is a no-op when goods is empty or malformed", async () => {
     const { service, repository } = harness();
     repository.carts.set(userCartKey("user-5"), {
       items: [{ bookId: "b1", amount: 1 }]
     });
     await service.handleOrderCreated(payload("user-5"));
-    expect(repository.carts.has(userCartKey("user-5"))).toBe(false);
-  });
-
-  it("is a no-op success when the user cart is absent", async () => {
-    const { service } = harness();
-    await service.handleOrderCreated(payload("no-such-user"));
+    await service.handleOrderCreated(
+      payload("user-5", [
+        { bookId: "", amount: 1 },
+        { bookId: "b1", amount: 0 },
+        { bookId: "b1", amount: 1.5 }
+      ] as OrderCreatedPayload["goods"])
+    );
+    expect(repository.calls).toHaveLength(0);
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([
+      { bookId: "b1", amount: 1 }
+    ]);
   });
 
   it("never touches guest carts", async () => {
@@ -767,8 +871,10 @@ describe("CartService.handleOrderCreated (order.order.created → ClearCart)", (
     repository.carts.set(guestCartKey(GUEST_ID), {
       items: [{ bookId: "b1", amount: 1 }]
     });
-    await service.handleOrderCreated(payload("user-1"));
-    expect(repository.carts.has(guestCartKey(GUEST_ID))).toBe(true);
+    await service.handleOrderCreated(payload("user-1", [good("b1", 1)]));
+    expect(repository.carts.get(guestCartKey(GUEST_ID))?.items).toEqual([
+      { bookId: "b1", amount: 1 }
+    ]);
   });
 
   it("ignores a non-string/missing userId", async () => {
@@ -776,11 +882,69 @@ describe("CartService.handleOrderCreated (order.order.created → ClearCart)", (
     await service.handleOrderCreated({
       orderId: "o-1",
       userId: 42 as unknown as string,
-      goods: [],
+      goods: [good("b1", 1)],
       totalPrice: 0
     });
     await service.handleOrderCreated(null as unknown as OrderCreatedPayload);
     expect(repository.calls).toHaveLength(0);
+  });
+
+  it("is idempotent — a redelivery of the same orderId does not decrement again", async () => {
+    const { service, repository } = harness();
+    repository.carts.set(userCartKey("user-5"), {
+      items: [{ bookId: "b1", amount: 3 }]
+    });
+    const event = payload("user-5", [good("b1", 2)]);
+    // Kafka is at-least-once: a crash between decrement and offset commit
+    // (or a plain redelivery) must not eat the remaining units.
+    await service.handleOrderCreated(event);
+    await service.handleOrderCreated(event);
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([
+      { bookId: "b1", amount: 1 }
+    ]);
+  });
+
+  it("different orderIds decrement independently", async () => {
+    const { service, repository } = harness();
+    repository.carts.set(userCartKey("user-5"), {
+      items: [{ bookId: "b1", amount: 5 }]
+    });
+    await service.handleOrderCreated({
+      ...payload("user-5", [good("b1", 2)]),
+      orderId: "order-a"
+    });
+    await service.handleOrderCreated({
+      ...payload("user-5", [good("b1", 2)]),
+      orderId: "order-b"
+    });
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([
+      { bookId: "b1", amount: 1 }
+    ]);
+  });
+
+  it("ignores a missing/empty orderId — there is nothing to dedup on", async () => {
+    const { service, repository } = harness();
+    repository.carts.set(userCartKey("user-5"), {
+      items: [{ bookId: "b1", amount: 3 }]
+    });
+    await service.handleOrderCreated({
+      orderId: undefined as unknown as string,
+      userId: "user-5",
+      goods: [good("b1", 1)],
+      totalPrice: 0
+    });
+    await service.handleOrderCreated({
+      orderId: "",
+      userId: "user-5",
+      goods: [good("b1", 1)],
+      totalPrice: 0
+    });
+    // without an orderId the event can never be deduplicated, so it is
+    // treated as malformed — the cart is left untouched
+    expect(repository.calls).toHaveLength(0);
+    expect(repository.carts.get(userCartKey("user-5"))?.items).toEqual([
+      { bookId: "b1", amount: 3 }
+    ]);
   });
 });
 
@@ -791,6 +955,7 @@ describe("RedisCartRepository (fake RedisLike)", () => {
     setCalls: { key: string; value: string; mode: string; seconds: number }[] =
       [];
     pipelineOps: string[] = [];
+    evalCalls: string[] = [];
 
     async get(key: string): Promise<string | null> {
       return this.values.get(key) ?? null;
@@ -815,6 +980,61 @@ describe("RedisCartRepository (fake RedisLike)", () => {
     }
 
     async expire(): Promise<unknown> {
+      return 1;
+    }
+
+    /**
+     * Test double for the decrement Lua script — re-implements its
+     * semantics in JS (claim the orderId marker via SET … NX first —
+     * a repeat exits early; missing/corrupt → 0; otherwise decrement
+     * pairs, remove <= 0, rewrite with SET … EX).
+     */
+    async eval(
+      script: string,
+      numKeys: number,
+      ...args: (string | number)[]
+    ): Promise<unknown> {
+      // eval(script, 1, key, markerKey, ttlSec, bookId, amount, …)
+      const key = args[0] as string;
+      this.evalCalls.push(key);
+      // SET markerKey 1 NX EX ttl — the dedup guard: a redelivered
+      // orderId returns before positions are touched again.
+      const markerKey = args[1] as string;
+      if (this.values.has(markerKey)) {
+        return 0;
+      }
+      this.values.set(markerKey, "1");
+      const raw = this.values.get(key);
+      if (!raw) {
+        return 0;
+      }
+      let cart: CartData;
+      try {
+        cart = JSON.parse(raw) as CartData;
+      } catch {
+        return 0;
+      }
+      if (!Array.isArray(cart?.items)) {
+        return 0;
+      }
+      const ttlSec = args[2] as number;
+      for (let i = 3; i + 1 < args.length; i += 2) {
+        const bookId = args[i] as string;
+        const amount = args[i + 1] as number;
+        const index = cart.items.findIndex((item) => item.bookId === bookId);
+        if (index < 0) {
+          continue;
+        }
+        const remaining = cart.items[index].amount - amount;
+        if (remaining <= 0) {
+          cart.items.splice(index, 1);
+        } else {
+          cart.items[index].amount = remaining;
+        }
+      }
+      const value = JSON.stringify(cart);
+      this.setCalls.push({ key, value, mode: "EX", seconds: ttlSec });
+      this.values.set(key, value);
       return 1;
     }
 
@@ -901,6 +1121,84 @@ describe("RedisCartRepository (fake RedisLike)", () => {
       status: "ok",
       cart: { items: [{ bookId: "b1", amount: 2 }] }
     });
+  });
+
+  it("decrementItems rewrites the cart via eval with SET … EX (F-K4)", async () => {
+    const redis = new FakeRedis();
+    redis.values.set(
+      "cart:user:u1",
+      JSON.stringify({
+        items: [
+          { bookId: "b1", amount: 2 },
+          { bookId: "b2", amount: 5 }
+        ]
+      })
+    );
+    const repo = new RedisCartRepository(redis);
+    await repo.decrementItems(
+      "cart:user:u1",
+      [
+        { bookId: "b1", amount: 2 },
+        { bookId: "b2", amount: 1 }
+      ],
+      60,
+      "order-1"
+    );
+    expect(redis.evalCalls).toEqual(["cart:user:u1"]);
+    expect(JSON.parse(redis.values.get("cart:user:u1")!)).toEqual({
+      items: [{ bookId: "b2", amount: 4 }]
+    });
+    // the rewrite carried the sliding TTL in the same command, and the
+    // orderId marker was claimed for dedup
+    expect(redis.setCalls.at(-1)).toMatchObject({ mode: "EX", seconds: 60 });
+    expect(redis.values.get("cart:order-processed:order-1")).toBe("1");
+  });
+
+  it("decrementItems no-ops on a repeated orderId — at-least-once dedup", async () => {
+    const redis = new FakeRedis();
+    redis.values.set(
+      "cart:user:u1",
+      JSON.stringify({ items: [{ bookId: "b1", amount: 3 }] })
+    );
+    const repo = new RedisCartRepository(redis);
+    const goods = [{ bookId: "b1", amount: 2 }];
+    await repo.decrementItems("cart:user:u1", goods, 60, "order-1");
+    await repo.decrementItems("cart:user:u1", goods, 60, "order-1");
+    // the second delivery found the marker and exited before decrementing
+    expect(JSON.parse(redis.values.get("cart:user:u1")!)).toEqual({
+      items: [{ bookId: "b1", amount: 1 }]
+    });
+    // a different orderId is not deduplicated
+    await repo.decrementItems("cart:user:u1", goods, 60, "order-2");
+    expect(JSON.parse(redis.values.get("cart:user:u1")!)).toEqual({
+      items: []
+    });
+    expect(redis.values.get("cart:order-processed:order-2")).toBe("1");
+  });
+
+  it("decrementItems no-ops on missing/corrupt keys and empty goods", async () => {
+    const redis = new FakeRedis();
+    redis.values.set("cart:user:corrupt", "not-json{{{");
+    const repo = new RedisCartRepository(redis);
+    await repo.decrementItems(
+      "cart:user:absent",
+      [{ bookId: "b", amount: 1 }],
+      60,
+      "order-a"
+    );
+    await repo.decrementItems(
+      "cart:user:corrupt",
+      [{ bookId: "b", amount: 1 }],
+      60,
+      "order-b"
+    );
+    await repo.decrementItems("cart:user:anything", [], 60, "order-c");
+    expect(redis.values.has("cart:user:absent")).toBe(false);
+    expect(redis.values.get("cart:user:corrupt")).toBe("not-json{{{");
+    // empty goods short-circuits before eval — no marker claimed either
+    expect(redis.evalCalls).toEqual(["cart:user:absent", "cart:user:corrupt"]);
+    expect(redis.values.has("cart:order-processed:order-c")).toBe(false);
+    expect(redis.setCalls).toEqual([]);
   });
 
   it("mergeCart over the Redis repo deletes an existing corrupt guest key", async () => {

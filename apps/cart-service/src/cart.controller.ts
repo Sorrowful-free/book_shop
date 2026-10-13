@@ -89,8 +89,9 @@ export class CartController implements cartProto.CartServiceController {
 
   /**
    * Kafka consumer entry point (spec §4): `order.order.events` /
-   * `order.order.created` → clear the user's cart. Internal, unauthenticated,
-   * best-effort; deletion is idempotent.
+   * `order.order.created` → decrement only the purchased positions
+   * (`goods[]`) in the user's cart (F-K4). Internal, unauthenticated,
+   * best-effort; deduplicated by orderId — a redelivery is a no-op.
    */
   @EventPattern(KAFKA_TOPICS.orderOrderEvents, Transport.KAFKA)
   async handleOrderEvent(

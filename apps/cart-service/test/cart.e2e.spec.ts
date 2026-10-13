@@ -360,36 +360,70 @@ describe("cart-service e2e (real redis + kafka)", () => {
     expect(guest.items).toEqual([{ bookId: "book-1", amount: 1 }]);
   });
 
-  it("clears the user cart when order.order.created is published", async () => {
+  it("removes only purchased positions when order.order.created is published, once per orderId (F-K4)", async () => {
     const userId = `order-${randomUUID()}`;
     const token = await signToken(userId);
-    await call(cart.addItem({ bookId: "book-1", amount: 1 }, bearer(token)));
+    // book-1 keeps 4 > purchased 2 — a double-decrement would be visible.
+    await call(cart.addItem({ bookId: "book-1", amount: 4 }, bearer(token)));
+    await call(cart.addItem({ bookId: "book-2", amount: 1 }, bearer(token)));
 
+    const good = (bookId: string, amount: number) => ({
+      bookId,
+      bookName: "b",
+      author: "a",
+      price: 10,
+      amount
+    });
+    const orderEvent = (payload: OrderCreatedPayload) => ({
+      key: userId,
+      value: JSON.stringify({
+        eventId: randomUUID(),
+        eventType: EVENT_TYPES.orderCreated,
+        occurredAt: new Date().toISOString(),
+        payload
+      })
+    });
     const payload: OrderCreatedPayload = {
       orderId: randomUUID(),
       userId,
-      goods: [],
-      totalPrice: 0
+      goods: [good("book-1", 2)],
+      totalPrice: 20
+    };
+
+    // Kafka is at-least-once — deliver the SAME event twice; the consumer
+    // dedups by orderId, so positions must be decremented exactly once.
+    const message = orderEvent(payload);
+    await producer.send({
+      topic: KAFKA_TOPICS.orderOrderEvents,
+      messages: [message]
+    });
+    await producer.send({
+      topic: KAFKA_TOPICS.orderOrderEvents,
+      messages: [message]
+    });
+
+    // A sentinel event (new orderId, same user key → same partition →
+    // consumed strictly after the duplicate): once it applies, both
+    // deliveries of the first event have been processed too.
+    const sentinel: OrderCreatedPayload = {
+      orderId: randomUUID(),
+      userId,
+      goods: [good("book-2", 1)],
+      totalPrice: 10
     };
     await producer.send({
       topic: KAFKA_TOPICS.orderOrderEvents,
-      messages: [
-        {
-          key: userId,
-          value: JSON.stringify({
-            eventId: randomUUID(),
-            eventType: EVENT_TYPES.orderCreated,
-            occurredAt: new Date().toISOString(),
-            payload
-          })
-        }
-      ]
+      messages: [orderEvent(sentinel)]
     });
 
+    // book-1 was decremented once (not twice); book-2 was purchased by
+    // the sentinel — whole-cart deletion would have wiped both.
     await waitFor(async () => {
       const c = await call(cart.getCart({}, bearer(token)));
-      return c.items.length === 0;
+      return c.items.length === 1 && c.items[0].bookId === "book-1";
     });
+    const final = await call(cart.getCart({}, bearer(token)));
+    expect(final.items).toEqual([{ bookId: "book-1", amount: 2 }]);
   }, 60_000);
 });
 

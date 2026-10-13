@@ -12,7 +12,9 @@ Temporary shopping carts — NestJS gRPC on `:50053`. Spec:
   JSON documents with a **sliding TTL** (`CART_TTL_SEC`) renewed on every
   successful cart-touching RPC.
 - **Kafka** — consumes `order.order.events` (`order.order.created`,
-  group `cart-service`) → clears the user's cart. No producers.
+  group `cart-service`) → decrements only the purchased positions
+  (`goods[]`) in the user's cart; deduplicated by `orderId` — a
+  redelivery is a no-op (at-least-once safe). No producers.
 - **Boundary validation** — request DTOs (`class-validator` +
   `ValidationPipe` on the gRPC controller) check the static shape before
   the domain service: `cart_id`/`guest_cart_id` uuid format (a present
