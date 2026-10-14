@@ -30,9 +30,12 @@ jobs:
 
       - name: Start infra
         run: |
-          docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka kafka-init minio minio-init
-          # one-shot init containers report "healthy" at start, not on
-          # completion — wait for both to actually finish (DEFERRED T4)
+          docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka minio
+          # one-shot init containers must stay out of the --wait list: if
+          # they exit before compose's first status poll, `up --wait`
+          # reports "container exited (0)" as a failure. Start them
+          # detached, then block on their real exit codes (DEFERRED T4).
+          docker compose -f infra/docker-compose.yml up -d kafka-init minio-init
           docker compose -f infra/docker-compose.yml wait kafka-init minio-init
 
       - name: Run tests
