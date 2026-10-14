@@ -51,7 +51,13 @@ on violations.
 
 ## Spec-driven workflow (mandatory)
 
-Every service/feature is implemented by a separate plan/subagent, in this order:
+Every service/feature is implemented by a separate plan/subagent. Background
+subagents run with exec auto-denied — they can write files but cannot run
+verification; dispatch implementation plans to a foreground
+`subagent_general`, or plan to run tests/builds/docker in the parent after
+the background agent reports.
+
+In this order:
 
 1. **Spec** — `docs/specs/NN-<name>.md` from `_template.md`, reviewed/approved
 2. **Contracts first** — proto/event changes land in `packages/contracts` before code

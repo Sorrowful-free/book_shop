@@ -56,12 +56,15 @@ bun run apps:down       # stop EVERYTHING (apps + infra — `down` covers the
   (drops postgres/redis/kafka data — registered users and carts are lost).
 - Broken container DNS (VPN/firewall dropping outbound UDP:53 from bridge
   networks): `bun install` inside `docker build` fails with
-  `DNSResolveFailed`. Merge `docker-compose.hostnet.yml` into the BUILD
-  step only — it sets `network: host` on every `build:` block; runtime is
-  unaffected (compose service discovery uses the embedded resolver):
+  `DNSResolveFailed`. Build the images with host networking, then `up`
+  normally — runtime is unaffected (compose service discovery uses the
+  embedded resolver):
 
   ```bash
-  docker compose -f infra/docker-compose.yml \
-    -f infra/docker-compose.hostnet.yml --profile apps build
+  bun run apps:build:hostnet   # infra/scripts/build-hostnet.sh
   docker compose -f infra/docker-compose.yml --profile apps up -d
   ```
+
+  (`docker compose build` can't do this itself: it delegates to buildx
+  bake, which wants a `--allow=network.host` entitlement compose won't
+  pass — the script uses plain `docker build --network=host`.)

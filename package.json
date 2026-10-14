@@ -13,6 +13,7 @@
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
     "infra:ps": "docker compose -f infra/docker-compose.yml ps",
     "infra:secrets": "bash infra/scripts/gen-secrets.sh",
+    "apps:build:hostnet": "bash infra/scripts/build-hostnet.sh",
     "apps:up": "docker compose -f infra/docker-compose.yml --profile apps up -d --build",
     "apps:down": "docker compose -f infra/docker-compose.yml --profile apps down",
     "apps:logs": "docker compose -f infra/docker-compose.yml --profile apps logs -f",

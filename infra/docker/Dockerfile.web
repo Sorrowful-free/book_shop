@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # apps/web production image (docs/specs/07-docker.md §3.2), two stages:
 #   1. oven/bun — workspace install + `bunx --bun nuxt build` → .output/
 #   2. node:22-alpine — serves the nitro node-server preset, proving the
@@ -18,7 +19,10 @@ COPY tsconfig.json tsconfig.base.json ./
 # covers the whole repo and a partial tree breaks `bun install`.
 COPY packages ./packages
 COPY apps ./apps
-RUN bun install --frozen-lockfile
+# Cache-mount: bun's download cache survives across builds (see
+# Dockerfile.service for why).
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 WORKDIR /app/apps/web
 RUN bunx --bun nuxt build
 

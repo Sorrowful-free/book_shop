@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Backend services image — ONE Dockerfile for all NestJS apps, parametrized
 # by build args (docs/specs/07-docker.md §3.1). Build context MUST be the
 # repo root:
@@ -33,7 +34,11 @@ COPY apps ./apps
 COPY infra/docker/entrypoint.sh /usr/local/bin/app-entrypoint.sh
 RUN chmod +x /usr/local/bin/app-entrypoint.sh
 
-RUN bun install --frozen-lockfile
+# Cache-mount keeps bun's download cache across builds — otherwise ANY edit
+# to package.json (even a script name) busts the COPY layer above and forces
+# a full ~5min re-download of every dependency.
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # APP — workspace dir under apps/ (e.g. auth-service, api-gateway). Baked
 #       as ENV so the entrypoint can `cd /app/apps/${APP}`.
