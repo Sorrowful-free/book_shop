@@ -24,6 +24,11 @@ review. Add new conventions here, not in `AGENTS.md`.
   prefixes) live in `packages/contracts/src` — not as per-service copies
   that drift (e.g. `covers.ts`: `COVER_KEY_PATTERN`, `COVER_CONTENT_TYPES`)
 - Dev secrets in `infra/` are local-only, never reused in production
+- Docker/CI: one-shot compose services (init containers like `kafka-init`,
+  `minio-init`) must stay out of `docker compose up --wait` — if one exits
+  before compose's first status poll, `--wait` fails with
+  `container ... exited (0)` despite success. Start them detached, then
+  block with `docker compose wait`, which returns real exit codes
 - No MongoDB anywhere — PostgreSQL (**Prisma** ORM) + Redis only
 - e2e needing JWTs: tests generate an Ed25519 key pair with `jose` (or reuse
   auth-service `gen-keys`), inject `JWT_PUBLIC_KEY` into the service under
