@@ -21,6 +21,7 @@
     "test:unit": "bun test src apps/web",
     "test:e2e": "bun test e2e",
     "lint": "eslint \"{apps,packages}/**/*.{ts,tsx,vue}\"",
+    "lint:fix": "eslint --fix \"{apps,packages}/**/*.{ts,tsx,vue}\"",
     "format": "prettier --write \"{apps,packages}/**/*.{ts,tsx,json,md,yml}\"",
     "proto:lint": "buf lint packages/contracts",
     "proto:gen": "bun --filter '@book-shop/contracts' proto:gen",

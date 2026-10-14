@@ -65,11 +65,22 @@ The app runs under **Bun** (this repo has no Node.js): scripts invoke the nuxt
 CLI via `bunx --bun` so the `#!/usr/bin/env node` shebangs in package bins are
 bypassed.
 
+Previewing uncommitted changes against the dockerised stack (no image
+rebuild): `NUXT_PORT=3002 bunx --bun nuxt dev` — the BFF defaults to the
+container gateway on `:3000`. `tailwind.config.ts` is not hot-reloaded —
+restart the dev server after editing it.
+
 ## Tests
 
 Colocated `*.spec.ts` files cover only pure helpers (`app/utils/*`,
 `server/utils/proxy.ts`) — they have no nuxt/`#imports` dependencies and run
-under the repo-wide `bun test`.
+under the repo-wide `bun test`. Keep it that way: logic worth unit-testing
+goes into pure functions there, not into composables/components (Nuxt
+auto-imports don't resolve under `bun test`).
+
+`test/style-guard.spec.ts` is a filesystem lint (spec 09): it fails on raw
+Tailwind palette literals (`gray-200`, `indigo-600`, …) in `app/` — conscious
+exceptions live in its `ALLOWLIST`.
 
 `bun --filter @book-shop/web smoke` runs `test/bff-smoke.mjs` (not a spec
 file): it boots `nuxt dev` against a stub gateway and asserts the SSR cookie

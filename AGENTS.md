@@ -76,6 +76,8 @@ bun test                   # all tests (bun test, colocated *.spec.ts + test/)
 bun run test:unit          # colocated *.spec.ts only — no infra needed
 bun run test:e2e           # <app>/test/*.e2e.spec.ts — needs `infra:up` incl. minio
 bun run lint               # eslint
+bun run lint:fix           # eslint --fix (prettier included) — run on
+                           # touched files before reporting
 bun run typecheck          # tsc --noEmit per workspace
 bun run proto:lint         # buf lint packages/contracts (needs buf CLI)
 bun run db:generate        # prisma generate for every DB-backed service
@@ -93,31 +95,7 @@ bun run db:generate        # prisma generate for every DB-backed service
 
 ## Conventions
 
-- Tests: `bun:test`, `*.spec.ts` colocated; e2e in `<app>/test/`.
-  **Never `mock.module`** — `bun test` shares the module registry across
-  files in one process, so a module mock leaks into unrelated specs. Use DI
-  (e.g. `seedAdminUser`'s injected `hash`) or local spies/fakes instead
-- Env: per-app `.env` (gitignored), commit `.env.example`. Every secret may
-  be supplied as `<NAME>` or `<NAME>_FILE` (path to a file — docker-secrets
-  convention); the file wins when both are set. Read them via
-  `resolveSecret` from `@book-shop/common`, never `process.env` directly
-- gRPC controllers: any handler taking `Metadata` MUST declare
-  `@Ctx() metadata?: Metadata` explicitly — once a `@Payload` is decorated,
-  undecorated parameters silently receive `undefined` (metadata lost →
-  everything UNAUTHENTICATED). See controllers in existing services
-- gRPC errors: throw `RpcException` via the local `rpcError` helper —
-  `{ code, message }` payload **plus** the same `code` assigned top-level
-  (grpc-js reads `error.code` when the exception escapes raw)
-- Dependencies: add only via `bun add` — never hand-edit `bun.lock`
-- Literals shared across a service boundary (regex, mime lists, path
-  prefixes) live in `packages/contracts/src` — not as per-service copies
-  that drift (e.g. `covers.ts`: `COVER_KEY_PATTERN`, `COVER_CONTENT_TYPES`)
-- Dev secrets in `infra/` are local-only, never reused in production
-- No MongoDB anywhere — PostgreSQL (**Prisma** ORM) + Redis only
-- e2e needing JWTs: tests generate an Ed25519 key pair with `jose` (or reuse
-  auth-service `gen-keys`), inject `JWT_PUBLIC_KEY` into the service under
-  test and sign test tokens directly — no auth-service dependency in tests
-- Role seeding: `SEED_ADMIN_*` seeds `admin` (defaults admin/admin), plus an
-  optional employer via `SEED_EMPLOYER_USER_NAME`/`SEED_EMPLOYER_PASSWORD`;
-  tests needing other roles insert users directly into the DB (no
-  role-management RPC by design)
+Code conventions live in `docs/CONVENTIONS.md` — read it before writing
+code or tests in any app or package (test placement, env/secrets, gRPC
+handler signatures, dependency rules, web styling). New conventions go
+there, not here — keep this file to hard rules and pointers.
