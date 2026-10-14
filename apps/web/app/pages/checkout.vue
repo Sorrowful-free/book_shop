@@ -3,7 +3,7 @@ import type { EnrichedCart, RestOrder } from "~/utils/api";
 
 definePageMeta({ middleware: "auth" });
 
-const { refreshCart } = useSession();
+const { applyCheckout } = useSession();
 
 const { data: cartData, error: cartError } = await useFetch<EnrichedCart>(
   "/api/cart",
@@ -38,7 +38,9 @@ async function placeOrder() {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey.value }
     });
-    await refreshCart();
+    // F-W1: no refreshCart here — it would race the cart-service consumer
+    // and re-fetch the pre-event cart over the optimistic subtraction.
+    applyCheckout(order.value.items);
   } catch (e) {
     flowError.value = apiErrorMessage(
       e,
@@ -73,31 +75,20 @@ async function pay() {
   <section class="mx-auto max-w-2xl">
     <h1 class="mb-6 text-2xl font-bold">Checkout</h1>
 
-    <p
-      v-if="cartError"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-    >
+    <p v-if="cartError" class="alert alert-danger">
       The cart is unavailable right now — please try again later.
     </p>
 
     <div v-else-if="!order" class="space-y-4">
-      <div
-        v-if="items.length === 0"
-        class="rounded border border-gray-200 bg-white p-8 text-center text-gray-500"
-      >
-        <p>Your cart is empty.</p>
-        <NuxtLink
-          to="/"
-          class="mt-2 inline-block text-indigo-600 hover:underline"
-        >
-          Back to the catalog →
+      <div v-if="items.length === 0" class="card p-8 text-center">
+        <p class="text-muted">Your cart is empty.</p>
+        <NuxtLink to="/" class="btn btn-primary mt-4">
+          Back to the catalog
         </NuxtLink>
       </div>
 
       <template v-else>
-        <div
-          class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white"
-        >
+        <div class="card divide-y divide-line">
           <div
             v-for="item in items"
             :key="item.bookId"
@@ -107,7 +98,7 @@ async function pay() {
               <p class="font-semibold">
                 {{ item.bookName ?? "Unlisted book" }}
               </p>
-              <p class="text-sm text-gray-500">
+              <p class="text-sm text-muted">
                 {{ item.author }} — {{ item.amount }} ×
                 {{
                   typeof item.price === "number" ? formatPrice(item.price) : "—"
@@ -115,7 +106,7 @@ async function pay() {
               </p>
               <p
                 v-if="isCartItemProblem(item)"
-                class="text-xs font-medium text-red-600"
+                class="text-xs font-medium text-danger-600"
               >
                 Not enough stock — adjust the cart first.
               </p>
@@ -134,14 +125,14 @@ async function pay() {
           </div>
         </div>
 
-        <p v-if="flowError" class="text-sm text-red-600">
+        <p v-if="flowError" class="alert alert-danger">
           {{ flowError }}
         </p>
 
         <div class="flex justify-end">
           <button
             type="button"
-            class="rounded bg-indigo-600 px-5 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            class="btn btn-primary"
             :disabled="placing || hasProblems"
             @click="placeOrder"
           >
@@ -152,18 +143,16 @@ async function pay() {
     </div>
 
     <div v-else class="space-y-4">
-      <div class="rounded-lg border border-green-200 bg-green-50 p-4">
-        <p class="font-semibold text-green-800">Order created</p>
-        <p class="text-sm text-green-700">
+      <div class="alert alert-success">
+        <p class="font-semibold">Order created</p>
+        <p class="mt-0.5 text-success-700">
           Order <span class="font-mono">{{ order.orderId }}</span> —
           {{ order.items.length }} item(s), total
           {{ formatPrice(order.totalPrice) }}.
         </p>
       </div>
 
-      <ul
-        class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white"
-      >
+      <ul class="card divide-y divide-line">
         <li
           v-for="item in order.items"
           :key="item.bookId"
@@ -178,20 +167,15 @@ async function pay() {
         </li>
       </ul>
 
-      <p v-if="flowError" class="text-sm text-red-600">
+      <p v-if="flowError" class="alert alert-danger">
         {{ flowError }}
       </p>
 
       <div class="flex justify-end gap-3">
-        <NuxtLink
-          to="/orders"
-          class="rounded border border-gray-300 px-5 py-2 text-sm"
-        >
-          Pay later
-        </NuxtLink>
+        <NuxtLink to="/orders" class="btn btn-secondary">Pay later</NuxtLink>
         <button
           type="button"
-          class="rounded bg-green-600 px-5 py-2 text-sm text-white hover:bg-green-700 disabled:bg-gray-300"
+          class="btn btn-primary h-11 px-6 text-base"
           :disabled="paying"
           @click="pay"
         >

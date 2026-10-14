@@ -70,30 +70,18 @@ async function clearCart() {
   <section class="mx-auto max-w-3xl">
     <h1 class="mb-6 text-2xl font-bold">Your cart</h1>
 
-    <p
-      v-if="status === 'pending'"
-      class="rounded border border-gray-200 bg-white p-8 text-center text-gray-500"
-    >
+    <p v-if="status === 'pending'" class="card p-8 text-center text-muted">
       Loading your cart…
     </p>
 
-    <p
-      v-else-if="error"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-    >
+    <p v-else-if="error" class="alert alert-danger">
       The cart is unavailable right now — please try again later.
     </p>
 
-    <div
-      v-else-if="items.length === 0"
-      class="rounded border border-gray-200 bg-white p-8 text-center text-gray-500"
-    >
-      <p>Your cart is empty.</p>
-      <NuxtLink
-        to="/"
-        class="mt-2 inline-block text-indigo-600 hover:underline"
-      >
-        Browse the catalog →
+    <div v-else-if="items.length === 0" class="card p-8 text-center">
+      <p class="text-muted">Your cart is empty.</p>
+      <NuxtLink to="/" class="btn btn-primary mt-4">
+        Browse the catalog
       </NuxtLink>
     </div>
 
@@ -101,27 +89,35 @@ async function clearCart() {
       <div
         v-for="item in items"
         :key="item.bookId"
-        class="flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-4"
-        :class="{ 'border-red-300 bg-red-50/50': isCartItemProblem(item) }"
+        class="card flex items-center gap-4 p-4"
+        :class="{
+          'border-danger-300 bg-danger-50/50': isCartItemProblem(item)
+        }"
       >
+        <BookCover
+          :title="item.bookName"
+          :author="item.author"
+          class="w-14 shrink-0 rounded-md"
+        />
+
         <div class="min-w-0 flex-1">
           <template v-if="item.bookName">
             <NuxtLink
               :to="`/books/${item.bookId}`"
-              class="font-semibold hover:text-indigo-700"
+              class="font-semibold transition-colors duration-150 hover:text-primary-700"
             >
               {{ item.bookName }}
             </NuxtLink>
-            <p class="text-sm text-gray-500">
+            <p class="text-sm text-muted">
               {{ item.author }}
             </p>
           </template>
-          <p v-else class="text-sm text-gray-500">
+          <p v-else class="text-sm text-muted">
             This book is no longer listed.
           </p>
           <p
             v-if="isCartItemProblem(item)"
-            class="mt-1 text-xs font-medium text-red-600"
+            class="mt-1 text-xs font-medium text-danger-600"
           >
             <template v-if="item.available === false">
               Unavailable — remove this item before checkout.
@@ -137,7 +133,7 @@ async function clearCart() {
           min="0"
           :value="item.amount"
           :disabled="mutating === item.bookId"
-          class="w-16 rounded border border-gray-300 px-2 py-1 text-sm"
+          class="input w-16 px-2"
           @change="
             updateAmount(
               item.bookId,
@@ -156,7 +152,7 @@ async function clearCart() {
 
         <button
           type="button"
-          class="text-sm text-gray-400 hover:text-red-600"
+          class="btn btn-ghost px-2 text-danger-600 hover:text-danger-700"
           :disabled="mutating === item.bookId"
           @click="removeItem(item.bookId)"
         >
@@ -164,39 +160,35 @@ async function clearCart() {
         </button>
       </div>
 
-      <div
-        class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4"
-      >
-        <span class="font-semibold">Total</span>
-        <span class="text-lg font-bold">{{ formatPrice(total) }}</span>
-      </div>
+      <div class="card p-4 sm:p-5">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold">Total</span>
+          <span class="text-lg font-bold">{{ formatPrice(total) }}</span>
+        </div>
 
-      <p v-if="mutationError" class="text-sm text-red-600">
-        {{ mutationError }}
-      </p>
-      <p v-if="hasProblems" class="text-sm text-red-600">
-        Fix the flagged positions before checking out.
-      </p>
+        <p v-if="mutationError" class="alert alert-danger mt-3">
+          {{ mutationError }}
+        </p>
+        <p v-if="hasProblems" class="mt-2 text-sm text-danger-600">
+          Fix the flagged positions before checking out.
+        </p>
 
-      <div class="flex justify-between">
-        <button
-          type="button"
-          class="text-sm text-gray-500 hover:text-red-600"
-          @click="clearCart"
-        >
-          Clear cart
-        </button>
-        <NuxtLink
-          to="/checkout"
-          class="rounded bg-indigo-600 px-5 py-2 text-sm text-white"
-          :class="
-            hasProblems
-              ? 'pointer-events-none bg-gray-300'
-              : 'hover:bg-indigo-700'
-          "
-        >
-          Proceed to checkout
-        </NuxtLink>
+        <div class="mt-4 flex items-center justify-between">
+          <button
+            type="button"
+            class="btn btn-ghost text-danger-600 hover:text-danger-700"
+            @click="clearCart"
+          >
+            Clear cart
+          </button>
+          <NuxtLink
+            to="/checkout"
+            class="btn btn-primary"
+            :class="{ 'pointer-events-none opacity-50': hasProblems }"
+          >
+            Proceed to checkout
+          </NuxtLink>
+        </div>
       </div>
     </div>
   </section>

@@ -42,25 +42,14 @@ const uploading = ref(false);
 const uploadError = ref("");
 const coverPreview = ref<string | null>(null); // createObjectURL of the file
 const uploadedCoverUrl = ref<string | null>(null); // server path it maps to
-const coverPreviewOk = ref(true);
-
-watch(
-  () => form.value.coverUrl,
-  () => {
-    // a broken URL typed/pasted by hand re-arms the preview check
-    coverPreviewOk.value = true;
-  }
-);
 
 const previewSrc = computed(() => {
-  if (!coverPreviewOk.value) {
-    return null;
-  }
   const manual = form.value.coverUrl.trim();
   if (!manual) {
     return null;
   }
-  // instant local preview for the just-uploaded file — no proxy round-trip
+  // instant local preview for the just-uploaded file — no proxy round-trip;
+  // a broken manual URL falls back to the BookCover placeholder by itself
   return manual === uploadedCoverUrl.value
     ? (coverPreview.value ?? manual)
     : manual;
@@ -88,17 +77,12 @@ async function onCoverSelected(event: Event) {
       URL.revokeObjectURL(coverPreview.value);
     }
     coverPreview.value = URL.createObjectURL(file);
-    coverPreviewOk.value = true;
   } catch (error) {
     uploadError.value =
       error instanceof Error ? error.message : "Cover upload failed";
   } finally {
     uploading.value = false;
   }
-}
-
-function onCoverPreviewError() {
-  coverPreviewOk.value = false;
 }
 
 async function submit() {
@@ -125,59 +109,41 @@ async function submit() {
 
 <template>
   <div
-    class="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4"
+    class="fixed inset-0 z-20 flex items-center justify-center bg-ink/40 p-4"
     @click.self="emit('close')"
   >
-    <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+    <div
+      class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-surface p-6 shadow-xl"
+    >
       <h2 class="mb-4 text-lg font-semibold">
         {{ book ? "Edit book" : "New book" }}
       </h2>
 
-      <form class="grid grid-cols-2 gap-3" @submit.prevent="submit">
-        <label class="col-span-2 text-sm">
+      <form class="grid grid-cols-2 gap-4" @submit.prevent="submit">
+        <label class="col-span-2 text-sm font-medium">
           Title *
-          <input
-            v-model="form.bookName"
-            required
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-          />
+          <input v-model="form.bookName" required class="input mt-1" />
         </label>
-        <label class="col-span-2 text-sm">
+        <label class="col-span-2 text-sm font-medium">
           Author *
-          <input
-            v-model="form.author"
-            required
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-          />
+          <input v-model="form.author" required class="input mt-1" />
         </label>
-        <label class="text-sm">
+        <label class="text-sm font-medium">
           ISBN
-          <input
-            v-model="form.isbn"
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-          />
+          <input v-model="form.isbn" class="input mt-1" />
         </label>
-        <label class="text-sm">
+        <label class="text-sm font-medium">
           Genre
-          <input
-            v-model="form.genre"
-            list="known-genres"
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-          />
+          <input v-model="form.genre" list="known-genres" class="input mt-1" />
           <datalist id="known-genres">
             <option v-for="g in KNOWN_GENRES" :key="g" :value="g" />
           </datalist>
         </label>
-        <label class="text-sm">
+        <label class="text-sm font-medium">
           Year
-          <input
-            v-model="form.year"
-            type="number"
-            min="0"
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-          />
+          <input v-model="form.year" type="number" min="0" class="input mt-1" />
         </label>
-        <label class="text-sm">
+        <label class="text-sm font-medium">
           Price (USD) *
           <input
             v-model="form.price"
@@ -185,81 +151,73 @@ async function submit() {
             min="0"
             step="0.01"
             required
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
+            class="input mt-1"
           />
         </label>
-        <label class="text-sm">
+        <label class="text-sm font-medium">
           Stock *
           <input
             v-model="form.stock"
             type="number"
             min="0"
             required
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
+            class="input mt-1"
           />
         </label>
-        <div class="col-span-2 text-sm">
+        <div class="col-span-2 text-sm font-medium">
           <label>
             Cover URL
-            <input
-              v-model="form.coverUrl"
-              type="text"
-              class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-            />
+            <input v-model="form.coverUrl" type="text" class="input mt-1" />
           </label>
           <div class="mt-2 flex items-center gap-3">
             <input
               type="file"
               :accept="COVER_ACCEPT"
               :disabled="uploading"
-              class="text-xs"
+              class="w-full max-w-xs text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-700 file:transition-colors hover:file:bg-primary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
               @change="onCoverSelected"
             />
-            <span v-if="uploading" class="text-xs text-gray-500">
+            <span v-if="uploading" class="text-xs font-normal text-muted">
               Uploading…
             </span>
-            <img
-              v-if="previewSrc"
-              :src="previewSrc"
-              alt="cover preview"
-              class="h-16 w-12 rounded border border-gray-200 object-cover"
-              @error="onCoverPreviewError"
+            <BookCover
+              :cover-url="previewSrc"
+              :title="form.bookName"
+              :author="form.author"
+              class="w-24 shrink-0 rounded-lg border border-line"
             />
-            <div
-              v-else
-              class="flex h-16 w-12 items-center justify-center rounded bg-indigo-50 text-[10px] text-indigo-300"
-            >
-              No cover
-            </div>
           </div>
-          <p v-if="uploadError" class="mt-1 text-xs text-red-600">
+          <p
+            v-if="uploadError"
+            class="mt-1 text-xs font-normal text-danger-600"
+          >
             {{ uploadError }}
           </p>
         </div>
-        <label class="col-span-2 text-sm">
+        <label class="col-span-2 text-sm font-medium">
           Description
           <textarea
             v-model="form.description"
             rows="3"
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
+            class="input mt-1 h-auto py-2"
           />
         </label>
 
-        <p v-if="props.error" class="col-span-2 text-sm text-red-600">
+        <p v-if="props.error" class="alert alert-danger col-span-2">
           {{ props.error }}
         </p>
 
         <div class="col-span-2 mt-2 flex justify-end gap-2">
           <button
             type="button"
-            class="rounded border border-gray-300 px-4 py-1.5 text-sm"
+            class="btn btn-secondary"
             @click="emit('close')"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="rounded bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+            class="btn btn-primary"
             :disabled="submitting || uploading"
           >
             {{ book ? "Save changes" : "Create book" }}

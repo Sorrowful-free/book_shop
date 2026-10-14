@@ -7,15 +7,15 @@ describe("orderStatusBadge", () => {
     expect(orderStatusBadge("PAID").label).toBe("Paid");
     expect(orderStatusBadge("PENDING").label).toBe("Pending");
     expect(orderStatusBadge("CANCELLED").label).toBe("Cancelled");
-    expect(orderStatusBadge("PAID").classes).toContain("green");
-    expect(orderStatusBadge("PENDING").classes).toContain("amber");
-    expect(orderStatusBadge("CANCELLED").classes).toContain("gray");
+    expect(orderStatusBadge("PAID").classes).toContain("success");
+    expect(orderStatusBadge("PENDING").classes).toContain("warning");
+    expect(orderStatusBadge("CANCELLED").classes).toContain("neutral");
   });
 
   it("passes unknown statuses through", () => {
     const badge = orderStatusBadge("UNSPECIFIED");
     expect(badge.label).toBe("UNSPECIFIED");
-    expect(badge.classes).toContain("gray");
+    expect(badge.classes).toContain("neutral");
   });
 });
 

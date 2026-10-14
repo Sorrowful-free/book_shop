@@ -57,8 +57,13 @@ function goTo(nextPage: number) {
 
 <template>
   <section>
-    <div class="mb-6 flex flex-wrap items-end gap-3">
-      <h1 class="text-2xl font-bold">Catalog</h1>
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold">Catalog</h1>
+        <p class="mt-0.5 text-sm text-muted">
+          {{ total }} {{ total === 1 ? "book" : "books" }} found
+        </p>
+      </div>
       <form
         class="flex flex-wrap items-center gap-2"
         @submit.prevent="applyFilters"
@@ -67,43 +72,31 @@ function goTo(nextPage: number) {
           v-model="searchInput"
           type="search"
           placeholder="Search title or author…"
-          class="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+          class="input w-52"
         />
         <input
           v-model="genreInput"
           list="storefront-genres"
           placeholder="Genre (any)"
-          class="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+          class="input w-40"
         />
         <datalist id="storefront-genres">
           <option v-for="g in KNOWN_GENRES" :key="g" :value="g" />
         </datalist>
-        <button
-          type="submit"
-          class="rounded bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700"
-        >
-          Filter
-        </button>
-        <NuxtLink
-          v-if="query || genre"
-          to="/"
-          class="text-sm text-gray-500 hover:underline"
-        >
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <NuxtLink v-if="query || genre" to="/" class="btn btn-ghost">
           Clear
         </NuxtLink>
       </form>
     </div>
 
-    <p
-      v-if="failed"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-    >
+    <p v-if="failed" class="alert alert-danger">
       The catalog is unavailable right now — please try again later.
     </p>
 
     <p
       v-else-if="status === 'success' && books.length === 0"
-      class="rounded border border-gray-200 bg-white p-8 text-center text-gray-500"
+      class="card p-8 text-center text-muted"
     >
       No books found{{ query ? ` for “${query}”` : ""
       }}{{ genre ? ` in genre “${genre}”` : "" }}.
@@ -111,8 +104,8 @@ function goTo(nextPage: number) {
 
     <div
       v-else
-      class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
-      :class="{ 'opacity-50': status === 'pending' }"
+      class="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4"
+      :class="{ 'animate-pulse opacity-50': status === 'pending' }"
     >
       <BookCard v-for="book in books" :key="book.bookId" :book="book" />
     </div>

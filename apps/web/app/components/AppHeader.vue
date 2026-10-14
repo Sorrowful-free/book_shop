@@ -21,66 +21,71 @@ function submitSearch() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-10 border-b border-gray-200 bg-white">
-    <div class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-      <NuxtLink to="/" class="text-xl font-bold text-indigo-700">
+  <header
+    class="sticky top-0 z-10 border-b border-line bg-surface/80 backdrop-blur"
+  >
+    <div class="page flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+      <NuxtLink to="/" class="shrink-0 text-lg font-bold text-primary-700">
         Book Shop
       </NuxtLink>
 
-      <form
-        class="flex flex-1 items-center gap-2"
-        @submit.prevent="submitSearch"
+      <nav
+        class="order-2 ml-auto flex flex-wrap items-center justify-end gap-1.5"
       >
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Search books or authors…"
-          class="w-full max-w-xs rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
-        />
-      </form>
-
-      <nav class="ml-auto flex items-center gap-4 text-sm">
         <NuxtLink
           to="/cart"
-          class="relative inline-flex items-center gap-1 hover:text-indigo-700"
+          class="nav-link inline-flex items-center gap-1.5"
+          active-class="nav-link-active"
         >
           Cart
           <span
             v-if="cartCount > 0"
-            class="rounded-full bg-indigo-600 px-1.5 py-0.5 text-xs font-semibold text-white"
+            class="rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
           >
             {{ cartCount }}
           </span>
         </NuxtLink>
 
         <template v-if="isLoggedIn">
-          <NuxtLink to="/orders" class="hover:text-indigo-700">
+          <NuxtLink
+            to="/orders"
+            class="nav-link"
+            active-class="nav-link-active"
+          >
             Orders
           </NuxtLink>
           <NuxtLink
             v-if="isStaff"
             to="/admin/books"
-            class="hover:text-indigo-700"
+            class="nav-link"
+            active-class="nav-link-active"
           >
             Admin
           </NuxtLink>
-          <span class="text-gray-500">{{ user?.userName }}</span>
-          <button type="button" class="hover:text-indigo-700" @click="logout">
+          <span class="hidden px-1 text-sm text-faint sm:inline">{{
+            user?.userName
+          }}</span>
+          <button type="button" class="btn btn-secondary" @click="logout">
             Log out
           </button>
         </template>
         <template v-else>
-          <NuxtLink to="/login" class="hover:text-indigo-700">
-            Log in
-          </NuxtLink>
-          <NuxtLink
-            to="/register"
-            class="rounded bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700"
-          >
-            Sign up
-          </NuxtLink>
+          <NuxtLink to="/login" class="btn btn-secondary">Log in</NuxtLink>
+          <NuxtLink to="/register" class="btn btn-primary">Sign up</NuxtLink>
         </template>
       </nav>
+
+      <form
+        class="order-3 w-full min-w-0 sm:order-none sm:w-auto sm:flex-1"
+        @submit.prevent="submitSearch"
+      >
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search books or authors…"
+          class="input sm:mx-auto sm:max-w-md"
+        />
+      </form>
     </div>
   </header>
 </template>

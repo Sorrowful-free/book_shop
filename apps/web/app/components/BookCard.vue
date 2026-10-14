@@ -8,10 +8,6 @@ const adding = ref(false);
 const added = ref(false);
 const purchasable = computed(() => isBookPurchasable(props.book));
 
-// spec 08 §6.3: a dead cover URL (Open Library 404, network) falls back
-// to the placeholder instead of a broken <img>.
-const coverOk = ref(true);
-
 async function addToCart() {
   adding.value = true;
   try {
@@ -34,58 +30,45 @@ async function addToCart() {
 
 <template>
   <article
-    class="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+    class="card flex flex-col overflow-hidden transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
     :class="{ 'opacity-60': book.isDeleted }"
   >
     <NuxtLink :to="`/books/${book.bookId}`" class="block">
-      <img
-        v-if="book.coverUrl && coverOk"
-        :src="book.coverUrl"
-        :alt="book.bookName"
-        class="h-44 w-full object-cover"
-        @error="coverOk = false"
+      <BookCover
+        :cover-url="book.coverUrl"
+        :title="book.bookName"
+        :author="book.author"
+        class="w-full"
       />
-      <div
-        v-else
-        class="flex h-44 w-full items-center justify-center bg-indigo-50 text-sm text-indigo-300"
-      >
-        No cover
-      </div>
     </NuxtLink>
 
-    <div class="flex flex-1 flex-col gap-1 p-3">
+    <div class="flex flex-1 flex-col gap-1 p-4">
       <NuxtLink
         :to="`/books/${book.bookId}`"
-        class="font-semibold leading-snug hover:text-indigo-700"
+        class="line-clamp-2 font-semibold leading-snug transition-colors duration-150 hover:text-primary-700"
       >
         {{ book.bookName }}
       </NuxtLink>
-      <p class="text-sm text-gray-500">
+      <p class="text-sm text-muted">
         {{ book.author }}
       </p>
-      <p
-        v-if="book.genre"
-        class="text-xs uppercase tracking-wide text-gray-400"
-      >
-        {{ book.genre }}
+      <p v-if="book.genre" class="mt-1">
+        <span class="badge badge-neutral">{{ book.genre }}</span>
       </p>
 
-      <div class="mt-auto flex items-center justify-between pt-2">
+      <div class="mt-auto flex items-center justify-between gap-2 pt-3">
         <span class="font-semibold">{{ formatPrice(book.price) }}</span>
-        <span
-          v-if="!purchasable"
-          class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600"
-        >
+        <span v-if="!purchasable" class="badge badge-neutral">
           Unavailable
         </span>
-        <span v-else-if="book.available <= 5" class="text-xs text-amber-600">
+        <span v-else-if="book.available <= 5" class="badge badge-warning">
           Only {{ book.available }} left
         </span>
       </div>
 
       <button
         type="button"
-        class="mt-2 w-full rounded bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+        class="btn btn-primary mt-3 w-full"
         :disabled="!purchasable || adding"
         @click="addToCart"
       >

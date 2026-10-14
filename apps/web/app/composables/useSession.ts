@@ -33,6 +33,24 @@ export function useSession() {
     }
   }
 
+  /**
+   * F-W1: cart-service clears bought positions asynchronously via the
+   * `order.order.created` consumer, so `refreshCart` right after checkout
+   * can hand back the pre-event cart. Subtract the ordered amounts
+   * locally — the next real fetch reconciles with the server.
+   */
+  function applyCheckout(
+    goods: readonly { bookId: string; amount: number }[]
+  ): void {
+    if (!cart.value) {
+      return;
+    }
+    cart.value = {
+      ...cart.value,
+      items: subtractOrderedItems(cart.value.items, goods)
+    };
+  }
+
   /** Logout never fails client-side — the gateway clears cookies regardless. */
   async function logout(): Promise<void> {
     try {
@@ -53,6 +71,7 @@ export function useSession() {
     cartCount,
     refreshUser,
     refreshCart,
+    applyCheckout,
     logout
   };
 }

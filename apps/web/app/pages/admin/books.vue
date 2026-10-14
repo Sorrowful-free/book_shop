@@ -117,97 +117,77 @@ async function restore(book: RestBook) {
             v-model="searchInput"
             type="search"
             placeholder="Search title or author…"
-            class="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+            class="input w-56"
           />
-          <button
-            type="submit"
-            class="rounded border border-gray-300 px-3 py-1.5 text-sm hover:border-indigo-400"
-          >
-            Search
-          </button>
+          <button type="submit" class="btn btn-secondary">Search</button>
         </form>
-        <button
-          type="button"
-          class="rounded bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700"
-          @click="openCreate"
-        >
+        <button type="button" class="btn btn-primary" @click="openCreate">
           + New book
         </button>
       </div>
     </div>
 
-    <p
-      v-if="error"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-    >
+    <p v-if="error" class="alert alert-danger">
       The catalog is unavailable right now — please try again later.
     </p>
 
-    <div
-      v-else
-      class="overflow-x-auto rounded-lg border border-gray-200 bg-white"
-    >
-      <table class="min-w-full divide-y divide-gray-100 text-sm">
-        <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500">
+    <div v-else class="card overflow-x-auto">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead
+          class="bg-page text-left text-xs font-medium uppercase tracking-wide text-muted"
+        >
           <tr>
-            <th class="px-4 py-2">Title</th>
-            <th class="px-4 py-2">Author</th>
-            <th class="px-4 py-2">Genre</th>
-            <th class="px-4 py-2 text-right">Price</th>
-            <th class="px-4 py-2 text-right">Stock</th>
-            <th class="px-4 py-2 text-right">Available</th>
-            <th class="px-4 py-2">Status</th>
-            <th class="px-4 py-2 text-right">Actions</th>
+            <th class="px-4 py-3">Title</th>
+            <th class="px-4 py-3">Author</th>
+            <th class="px-4 py-3">Genre</th>
+            <th class="px-4 py-3 text-right">Price</th>
+            <th class="px-4 py-3 text-right">Stock</th>
+            <th class="px-4 py-3 text-right">Available</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
+        <tbody class="divide-y divide-line">
           <tr
             v-for="book in books"
             :key="book.bookId"
-            :class="{ 'bg-gray-50 text-gray-400': book.isDeleted }"
+            class="transition-colors duration-150 hover:bg-page"
+            :class="{ 'bg-page text-faint': book.isDeleted }"
           >
-            <td class="px-4 py-2 font-medium">
+            <td class="px-4 py-2.5 font-medium">
               <NuxtLink
                 :to="`/books/${book.bookId}`"
-                class="hover:text-indigo-700 hover:underline"
+                class="transition-colors duration-150 hover:text-primary-700 hover:underline"
               >
                 {{ book.bookName }}
               </NuxtLink>
             </td>
-            <td class="px-4 py-2">
+            <td class="px-4 py-2.5">
               {{ book.author }}
             </td>
-            <td class="px-4 py-2">
+            <td class="px-4 py-2.5">
               {{ book.genre || "—" }}
             </td>
-            <td class="px-4 py-2 text-right">
+            <td class="px-4 py-2.5 text-right">
               {{ formatPrice(book.price) }}
             </td>
-            <td class="px-4 py-2 text-right">
+            <td class="px-4 py-2.5 text-right">
               {{ book.stock }}
             </td>
-            <td class="px-4 py-2 text-right">
+            <td class="px-4 py-2.5 text-right">
               {{ book.available }}
             </td>
-            <td class="px-4 py-2">
-              <span
-                v-if="book.isDeleted"
-                class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600"
-              >
+            <td class="px-4 py-2.5">
+              <span v-if="book.isDeleted" class="badge badge-neutral">
                 Deleted
               </span>
-              <span
-                v-else
-                class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700"
-              >
-                Active
-              </span>
+              <span v-else class="badge badge-success">Active</span>
             </td>
-            <td class="px-4 py-2 text-right">
-              <div class="flex justify-end gap-2">
+            <td class="px-4 py-2.5 text-right">
+              <div class="flex justify-end gap-1">
                 <button
                   type="button"
-                  class="text-indigo-600 hover:underline"
+                  class="btn btn-ghost text-primary-600 hover:text-primary-700"
                   @click="openEdit(book)"
                 >
                   Edit
@@ -216,7 +196,7 @@ async function restore(book: RestBook) {
                   <button
                     v-if="book.isDeleted"
                     type="button"
-                    class="text-green-700 hover:underline"
+                    class="btn btn-ghost text-success-700 hover:text-success-800"
                     @click="restore(book)"
                   >
                     Restore
@@ -224,7 +204,7 @@ async function restore(book: RestBook) {
                   <button
                     v-else
                     type="button"
-                    class="text-red-600 hover:underline"
+                    class="btn btn-ghost text-danger-600 hover:text-danger-700"
                     @click="remove(book)"
                   >
                     Delete
@@ -234,7 +214,7 @@ async function restore(book: RestBook) {
             </td>
           </tr>
           <tr v-if="status === 'success' && books.length === 0">
-            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+            <td colspan="8" class="px-4 py-8 text-center text-muted">
               No books found.
             </td>
           </tr>
@@ -242,7 +222,7 @@ async function restore(book: RestBook) {
       </table>
     </div>
 
-    <p v-if="actionError" class="mt-3 text-sm text-red-600">
+    <p v-if="actionError" class="alert alert-danger mt-3">
       {{ actionError }}
     </p>
 

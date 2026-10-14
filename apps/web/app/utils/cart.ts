@@ -32,3 +32,24 @@ export function cartTotal(
 export function isCartItemProblem(item: EnrichedCartItem): boolean {
   return item.available === false || item.amount > item.available;
 }
+
+/**
+ * F-W1: optimistic mirror of cart-service's order-created semantics —
+ * ordered amounts are decremented locally (`<= 0` removes the position).
+ * `GET /api/cart` right after checkout would race the Kafka consumer and
+ * hand back the pre-event cart; the next real fetch reconciles.
+ */
+export function subtractOrderedItems(
+  items: EnrichedCartItem[],
+  ordered: readonly { bookId: string; amount: number }[]
+): EnrichedCartItem[] {
+  const bought = new Map(ordered.map((o) => [o.bookId, o.amount]));
+  return items
+    .map((item) => {
+      const used = bought.get(item.bookId);
+      return used === undefined
+        ? item
+        : { ...item, amount: item.amount - used };
+    })
+    .filter((item) => item.amount > 0);
+}

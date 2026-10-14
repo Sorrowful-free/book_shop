@@ -1,3 +1,72 @@
+@import "@fontsource-variable/inter";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* spec 09 §3 — shared component classes for recurring patterns. */
+@layer components {
+  .btn {
+    @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-700 active:bg-primary-800;
+  }
+  .btn-secondary {
+    @apply border border-line bg-surface text-ink hover:bg-page hover:text-primary-700;
+  }
+  .btn-danger {
+    @apply bg-danger-600 text-white hover:bg-danger-700 active:bg-danger-800;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-line/60 hover:text-ink;
+  }
+
+  .input {
+    @apply block h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink transition-colors duration-150 placeholder:text-faint focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-card;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .badge-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+  .badge-warning {
+    @apply bg-warning-100 text-warning-800;
+  }
+  .badge-danger {
+    @apply bg-danger-100 text-danger-800;
+  }
+  .badge-neutral {
+    @apply bg-zinc-100 text-zinc-600;
+  }
+
+  .alert {
+    @apply rounded-lg p-4 text-sm;
+  }
+  .alert-danger {
+    @apply border border-danger-200 bg-danger-50 text-danger-700;
+  }
+  .alert-success {
+    @apply border border-success-200 bg-success-50 text-success-800;
+  }
+
+  .page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6;
+  }
+
+  .nav-link {
+    @apply rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:bg-line/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500;
+  }
+  .nav-link-active {
+    @apply bg-line/60 text-ink;
+  }
+}

@@ -1,14 +1,14 @@
 # 09. web-style — визуальный рефреш витрины
 
-> Статус: draft
+> Статус: implemented
 > Затрагивает: `apps/web` (только стили/шаблоны; без изменений
 > backend, контрактов и логики)
 
 ## 1. Ответственность и границы
 
 Довести UI до цельного «современный e-commerce» вида: нейтральная база +
-один акцент (indigo-600 остаётся), строгая сетка, больше воздуха,
-консистентные контролы. Дизайн-токены — в собственном
+один акцент (near-black `zinc-900`, не indigo), строгая сетка, больше
+воздуха, консистентные контролы. Дизайн-токены — в собственном
 `tailwind.config.ts`, повторяющиеся паттерны — в component-классах.
 
 Делает: дизайн-токены, рестайл всех страниц и компонентов, общий
@@ -26,16 +26,19 @@ transition-классов, рестайл Swagger/сервисных стран�
 
 | Токен | Решение |
 | ----- | ------- |
-| Нейтралы | `zinc` (тёплый нейтрал; фон страницы `zinc-50`, поверхности `white`, границы `zinc-200`, текст `zinc-900`/`zinc-500`) |
-| Акцент | `primary` = палитра `indigo` (как сейчас; кнопки `indigo-600`, hover `indigo-700`, фокус-кольцо `indigo-500`) |
-| Семантика | `success`/`warning`/`danger` — emerald/amber/red для статусов заказов и stock-бейджей |
-| Шрифт | `@fontsource-variable/inter` (self-hosted, без CDN — работает офлайн и в Docker); fallback system stack |
+| Нейтралы | `zinc` — база для семантических алиасов ниже; в шаблонах напрямую не используется (редкие сознательные исключения допустимы) |
+| Акцент | `primary` = палитра `zinc` целиком + алиас `primary`→900 (near-black; hover `primary-700`, фокус-кольцо `primary-500`) |
+| Семантика | `bg-page`=`zinc-50`, `bg-surface`=`white`, `text-ink`=`zinc-900`, `text-muted`=`zinc-500`, `text-faint`=`zinc-400`, `border-line`=`zinc-200`; `success`/`warning`/`danger` = emerald/amber/red для статусов заказов и stock-бейджей |
+| Шрифт | `@fontsource-variable/inter` (variable-файл, self-hosted — работает офлайн и в Docker); `fontFamily.sans` + fallback system stack |
 | Радиусы | карточки `rounded-xl`, контролы `rounded-lg` |
 | Тени | `shadow-card`: мягкая карточная тень; `shadow-card-hover` — приподнятая |
 | Обложка | `aspect-[2/3]` (книжная пропорция) вместо фиксированных высот |
 
-Токены семантические (`bg-surface`, `text-muted`, `bg-primary` и т.п.) —
-чтобы смена палитры позже (включая dark) была точечной.
+Все токены семантические — шаблоны и component-классы используют
+`bg-surface`/`text-muted`/`bg-primary`/`border-line` и т.п., а не
+литералы палитры. `gray-*` в шаблонах исчезает полностью; `indigo-*`
+заменяется на `primary`; `zinc-*` — только сознательные исключения.
+Смена палитры позже (включая dark) будет точечной.
 
 ## 3. Component-классы (`app/assets/css/main.css`)
 
@@ -45,9 +48,13 @@ utility-soup из шаблонов и гарантирует консистен�
 - `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-ghost` —
   одинаковая геометрия (h-9, px-4, rounded-lg, font-medium), состояния
   hover/active/disabled/focus-visible;
-- `.input` — единый стиль всех полей (border-zinc-300, focus ring primary);
-- `.card` — `rounded-xl border border-zinc-200 bg-white shadow-card`;
-- `.badge` — чипы статусов/жанра/stock;
+- `.input` — единый стиль всех полей: `<input>`, `<select>`, `<textarea>`
+  (border-line, focus ring primary);
+- `.card` — `rounded-xl border border-line bg-surface shadow-card`;
+- `.badge` — чипы статусов/жанра/stock (варианты через
+  success/warning/danger);
+- `.alert`, `.alert-danger` — блок ошибок форм/checkout (red-50 фон,
+  red-700 текст, rounded-lg);
 - `.page` — `mx-auto max-w-7xl px-4 sm:px-6` (единый контейнер; header
   и контент выравниваются по одной сетке).
 
@@ -68,13 +75,17 @@ utility-soup из шаблонов и гарантирует консистен�
   компактные chevron-стрелки (unicode/svg-иконка, без emoji-стиля).
 - **`BookFormModal`**: `rounded-2xl shadow-xl`, отступы `p-6`, заголовок
   `text-lg font-semibold`, поля `.input` в сетке, превью обложки
-  `aspect-[2/3] w-24`, кнопки по §3 (из 08 приезжает upload-виджет —
-  стилизуется теми же классами).
+  `aspect-[2/3] w-24`, кнопки по §3 (upload-виджет из 08 стилизуется
+  теми же классами — функционал не трогаем).
 - **Новый `BookCover`** (общий): `<img>` + `@error`-фолбэк + плейсхолдер —
-  нейтральный градиент (`zinc-100→zinc-200`) с инициалами названия/автора,
-  `aspect-[2/3]`. Используется в `BookCard`, `books/[id]`, `cart`,
-  превью формы. (08 даёт `@error`-механику; если 09 идёт раньше —
-  плейсхолдер появляется здесь и 08 только унифицирует.)
+  нейтральный градиент (`zinc-100→zinc-200`) с инициалами: до двух
+  заглавных букв от первых слов `title` («The Hobbit» → «TH»), при пустом
+  title — инициалы `author`, при пустых обоих — чистый градиент.
+  Props: `coverUrl`, `title`, `author` + `class` для размера;
+  `aspect-[2/3]` внутри компонента. Используется в `BookCard`,
+  `books/[id]`, `cart`, превью формы. 08 уже смержена — компонент
+  консолидирует три продублированных `@error`-фолбэка (`coverOk`-логика
+  уезжает внутрь `BookCover`).
 
 ### 4.2 Страницы
 
@@ -93,22 +104,24 @@ utility-soup из шаблонов и гарантирует консистен�
 - `focus-visible` ring на всех интерактивах (a11y), `:disabled` — 50%
   opacity + `cursor-not-allowed`;
 - hover-переходы `transition-shadow/colors` 150–200ms;
-- loading-скелет витрины оставляем `opacity-50` (уже есть) — при желании
-  лёгкий `animate-pulse`.
+- loading-скелет витрины — `animate-pulse` поверх текущего приглушения
+  (подтверждено).
 
 ## 5. Зависимости
 
-- `bun add @fontsource-variable/inter` (или обычный `@fontsource/inter`
-  с 2–3 весами) — единственная новая зависимость; импорт в `main.css`/
-  plugin + `fontFamily.sans` в конфиге.
+- `bun add @fontsource-variable/inter` (variable-файл — выбрано) —
+  единственная новая зависимость; `@import '@fontsource-variable/inter'`
+  первой строкой `main.css` + `fontFamily.sans` в конфиге.
 - Никаких UI-библиотек, иконки — простые unicode/inline-SVG при
   необходимости (без иконочных пакетов).
 
 ## 6. Acceptance criteria
 
-- `tailwind.config.ts` создан; токены (`primary`, `surface`, `muted`,
-  `shadow-card`) используются вместо разбросанных `gray-*`/`indigo-*` —
-  прямые `gray-*` в шаблонах исчезают (кроме сознательных исключений).
+- `tailwind.config.ts` создан; семантические токены (`primary`,
+  `surface`, `page`, `ink`/`muted`/`faint`, `line`, `shadow-card`)
+  используются вместо разбросанных `gray-*`/`indigo-*` — прямые `gray-*`
+  в шаблонах исчезают полностью, `zinc-*`/`indigo-*` — только
+  сознательные исключения.
 - Все страницы из §4.2 проходят визуальный чек-лист: desktop ≥1280px и
   мобильный ~390px без горизонтального скролла и «прилипших» элементов.
 - Фокус-обводки видны при Tab-навигации; контраст текста ≥ WCAG AA на
@@ -127,10 +140,10 @@ utility-soup из шаблонов и гарантирует консистен�
 
 ## 8. NFR / риски
 
-- Порядок относительно 08: независимы; при выкате 09 раньше — `BookCover`
-  даёт плейсхолдер, 08 добавляет upload/`@error`; при выкате 08 раньше —
-  09 доводит плейсхолдер до дизайна. Конфликтов по файлам минимум
-  (`BookCard`, `BookFormModal`, `books/[id]` — ребейз решает тривиально).
+- 08 уже смержена: `BookCover` консолидирует существующие
+  `@error`-фолбэки (`BookCard`, `BookFormModal`, `books/[id]`) и доводит
+  плейсхолдер до дизайна. Функционал upload-виджета не трогаем — только
+  классы.
 - Новая зависимость одна (fontsource). Tailwind остаётся v3 —
   `@nuxtjs/tailwindcss` 6.x; переезд на v4 — отдельная тема.
 - SSR/гидрация: стили статические, flash-of-unstyled исключён (cssPath

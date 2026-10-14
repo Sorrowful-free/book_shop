@@ -5,17 +5,17 @@ export interface StatusBadge {
   classes: string;
 }
 
-/** Order status → badge label + tailwind classes for the /orders table. */
+/** Order status → badge label + semantic badge variant for /orders. */
 export function orderStatusBadge(status: string): StatusBadge {
   switch (status) {
     case "PAID":
-      return { label: "Paid", classes: "bg-green-100 text-green-800" };
+      return { label: "Paid", classes: "badge-success" };
     case "PENDING":
-      return { label: "Pending", classes: "bg-amber-100 text-amber-800" };
+      return { label: "Pending", classes: "badge-warning" };
     case "CANCELLED":
-      return { label: "Cancelled", classes: "bg-gray-200 text-gray-600" };
+      return { label: "Cancelled", classes: "badge-neutral" };
     default:
-      return { label: status, classes: "bg-gray-100 text-gray-700" };
+      return { label: status, classes: "badge-neutral" };
   }
 }
 

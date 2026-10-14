@@ -4,23 +4,26 @@ const emit = defineEmits<{ go: [page: number] }>();
 </script>
 
 <template>
-  <nav v-if="pages > 1" class="mt-6 flex items-center justify-center gap-2">
+  <nav v-if="pages > 1" class="mt-8 flex items-center justify-center gap-3">
     <button
       type="button"
-      class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-40"
+      class="btn btn-secondary"
       :disabled="page <= 1"
       @click="emit('go', page - 1)"
     >
-      ← Prev
+      <span aria-hidden="true">‹</span> Prev
     </button>
-    <span class="text-sm text-gray-600">Page {{ page }} of {{ pages }}</span>
+    <span class="text-sm text-muted"
+      >Page <span class="font-semibold text-primary-600">{{ page }}</span> of
+      {{ pages }}</span
+    >
     <button
       type="button"
-      class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-40"
+      class="btn btn-secondary"
       :disabled="page >= pages"
       @click="emit('go', page + 1)"
     >
-      Next →
+      Next <span aria-hidden="true">›</span>
     </button>
   </nav>
 </template>

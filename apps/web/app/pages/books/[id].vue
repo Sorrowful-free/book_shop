@@ -14,9 +14,6 @@ if (error.value) {
   });
 }
 
-// spec 08 §6.3: broken cover URLs degrade to the placeholder.
-const coverOk = ref(true);
-
 const amount = ref(1);
 const adding = ref(false);
 const added = ref(false);
@@ -48,87 +45,72 @@ async function addToCart() {
 </script>
 
 <template>
-  <section v-if="book" class="mx-auto max-w-3xl">
-    <NuxtLink to="/" class="text-sm text-indigo-600 hover:underline">
+  <section v-if="book" class="mx-auto max-w-4xl">
+    <NuxtLink
+      to="/"
+      class="text-sm font-medium text-primary-600 transition-colors duration-150 hover:text-primary-700 hover:underline"
+    >
       ← Back to catalog
     </NuxtLink>
 
-    <div
-      class="mt-4 flex flex-col gap-6 rounded-lg border border-gray-200 bg-white p-6 sm:flex-row"
-    >
-      <img
-        v-if="book.coverUrl && coverOk"
-        :src="book.coverUrl"
-        :alt="book.bookName"
-        class="h-64 w-48 rounded object-cover"
-        @error="coverOk = false"
+    <div class="card mt-4 flex flex-col gap-8 p-6 sm:flex-row sm:p-8">
+      <BookCover
+        :cover-url="book.coverUrl"
+        :title="book.bookName"
+        :author="book.author"
+        class="mx-auto w-full max-w-sm shrink-0 rounded-xl shadow-card sm:mx-0 sm:w-72"
       />
-      <div
-        v-else
-        class="flex h-64 w-48 items-center justify-center rounded bg-indigo-50 text-sm text-indigo-300"
-      >
-        No cover
-      </div>
 
       <div class="flex-1">
-        <h1 class="text-2xl font-bold">
+        <h1 class="text-3xl font-bold tracking-tight">
           {{ book.bookName }}
         </h1>
-        <p class="mt-1 text-gray-600">
+        <p class="mt-2 text-lg text-muted">
           {{ book.author }}
         </p>
-        <p
-          v-if="book.genre"
-          class="mt-1 text-xs uppercase tracking-wide text-gray-400"
-        >
-          {{ book.genre }}
+        <p v-if="book.genre" class="mt-3">
+          <span class="badge badge-primary">{{ book.genre }}</span>
         </p>
-        <p v-if="book.isbn" class="mt-1 text-xs text-gray-400">
+        <p v-if="book.isbn" class="mt-3 text-xs text-faint">
           ISBN {{ book.isbn }}
         </p>
-        <p v-if="book.year" class="text-xs text-gray-400">
+        <p v-if="book.year" class="text-xs text-faint">
           {{ book.year }}
         </p>
 
-        <p v-if="book.description" class="mt-4 text-sm text-gray-700">
+        <p v-if="book.description" class="mt-4 text-sm leading-relaxed">
           {{ book.description }}
         </p>
 
         <div class="mt-6 flex items-center gap-4">
-          <span class="text-xl font-semibold">{{
+          <span class="text-2xl font-semibold">{{
             formatPrice(book.price)
           }}</span>
-          <span
-            v-if="book.isDeleted"
-            class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600"
-          >
+          <span v-if="book.isDeleted" class="badge badge-neutral">
             Unavailable
           </span>
-          <span
-            v-else-if="book.available === 0"
-            class="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600"
-          >
+          <span v-else-if="book.available === 0" class="badge badge-danger">
             Out of stock
           </span>
-          <span v-else class="text-sm text-green-700"
+          <span v-else class="text-sm font-medium text-success-700"
             >{{ book.available }} in stock</span
           >
         </div>
 
-        <div v-if="purchasable" class="mt-4 flex items-center gap-3">
-          <label class="text-sm text-gray-600">
+        <div v-if="purchasable" class="mt-5 flex flex-wrap items-center gap-3">
+          <label class="text-sm text-muted">
             Qty
             <input
               v-model.number="amount"
               type="number"
               min="1"
               :max="maxAmount"
-              class="ml-1 w-16 rounded border border-gray-300 px-2 py-1.5"
+              class="input ml-1 inline-flex w-16"
             />
           </label>
           <button
             type="button"
-            class="rounded bg-indigo-600 px-5 py-2 text-sm text-white hover:bg-indigo-700 disabled:bg-gray-300"
+            class="btn btn-primary"
             :disabled="adding"
             @click="addToCart"
           >
@@ -137,17 +119,12 @@ async function addToCart() {
           <NuxtLink
             v-if="added"
             to="/cart"
-            class="text-sm text-indigo-600 hover:underline"
+            class="text-sm font-medium text-primary-600 hover:underline"
           >
             In cart — go to cart →
           </NuxtLink>
         </div>
-        <button
-          v-else
-          type="button"
-          disabled
-          class="mt-4 cursor-not-allowed rounded bg-gray-300 px-5 py-2 text-sm text-white"
-        >
+        <button v-else type="button" disabled class="btn btn-primary mt-5">
           Add to cart
         </button>
       </div>
