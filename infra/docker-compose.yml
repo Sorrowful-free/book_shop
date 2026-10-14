@@ -92,6 +92,219 @@ services:
       kafka:
         condition: service_healthy
 
+  # -------------------------------------------------------------------------
+  # Demo apps — profile `apps` (docs/specs/07-docker.md). `bun run infra:up`
+  # (no profile) still starts infra only; `bun run apps:up` builds and starts
+  # everything. gRPC ports are deliberately NOT published — the only host
+  # endpoints are api-gateway :3000 and web :3001. Requires the JWT secrets
+  # below — generate once with `bun run infra:secrets`.
+  # -------------------------------------------------------------------------
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        APP: auth-service
+        PRISMA_SCHEMA: apps/auth-service/prisma/schema.prisma
+    profiles: ["apps"]
+    env_file: docker/apps.env
+    secrets:
+      - jwt_private
+      - jwt_public
+    environment:
+      GRPC_PORT: "50051"
+      DATABASE_URL: postgresql://auth_user:auth_pass@postgres:5432/auth_db
+      JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private
+      # demo stack: seed the admin account at bootstrap (in-app, idempotent)
+      SEED_ADMIN_USER_NAME: admin
+      SEED_ADMIN_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bun -e 'const s = require("net").connect(Number(process.env.GRPC_PORT), "127.0.0.1", () => { s.end(); process.exit(0); }); s.on("error", () => process.exit(1));'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        APP: catalog-service
+        PRISMA_SCHEMA: apps/catalog-service/prisma/schema.prisma
+    profiles: ["apps"]
+    env_file: docker/apps.env
+    secrets:
+      - jwt_public
+    environment:
+      GRPC_PORT: "50052"
+      DATABASE_URL: postgresql://catalog_user:catalog_pass@postgres:5432/catalog_db
+      # idempotent book seed, run by the entrypoint before the service starts
+      RUN_SEED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bun -e 'const s = require("net").connect(Number(process.env.GRPC_PORT), "127.0.0.1", () => { s.end(); process.exit(0); }); s.on("error", () => process.exit(1));'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  cart-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        APP: cart-service
+    profiles: ["apps"]
+    env_file: docker/apps.env
+    secrets:
+      - jwt_public
+    environment:
+      GRPC_PORT: "50053"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bun -e 'const s = require("net").connect(Number(process.env.GRPC_PORT), "127.0.0.1", () => { s.end(); process.exit(0); }); s.on("error", () => process.exit(1));'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  order-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        APP: order-service
+        PRISMA_SCHEMA: apps/order-service/prisma/schema.prisma
+    profiles: ["apps"]
+    env_file: docker/apps.env
+    secrets:
+      - jwt_public
+    environment:
+      GRPC_PORT: "50054"
+      DATABASE_URL: postgresql://order_user:order_pass@postgres:5432/order_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bun -e 'const s = require("net").connect(Number(process.env.GRPC_PORT), "127.0.0.1", () => { s.end(); process.exit(0); }); s.on("error", () => process.exit(1));'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        APP: api-gateway
+    profiles: ["apps"]
+    env_file: docker/apps.env
+    secrets:
+      - jwt_public
+    environment:
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bun -e 'fetch("http://127.0.0.1:" + (process.env.PORT || 3000) + "/api/v1/books?limit=1").then((r) => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.web
+    profiles: ["apps"]
+    environment:
+      # runtimeConfig override for the built .output (nuxt.config.ts is not
+      # executed there) — BFF proxy target is the internal gateway address
+      NUXT_GATEWAY_URL: http://api-gateway:3000
+      # nitro listens on PORT (not NUXT_PORT); bind all interfaces
+      PORT: "3001"
+      HOST: 0.0.0.0
+    ports:
+      - "3001:3001"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e 'fetch("http://127.0.0.1:" + (process.env.PORT || 3001) + "/").then((r) => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+secrets:
+  jwt_private:
+    file: ./secrets/jwt_private.pem
+  jwt_public:
+    file: ./secrets/jwt_public.pem
+
 volumes:
   postgres-data:
   redis-data:

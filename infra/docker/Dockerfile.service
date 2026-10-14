@@ -1,0 +1,52 @@
+# Backend services image — ONE Dockerfile for all NestJS apps, parametrized
+# by build args (docs/specs/07-docker.md §3.1). Build context MUST be the
+# repo root:
+#
+#   docker build -f infra/docker/Dockerfile.service \
+#     --build-arg APP=auth-service \
+#     --build-arg PRISMA_SCHEMA=apps/auth-service/prisma/schema.prisma .
+#
+# Base is oven/bun:1 (Debian) — deliberately NOT alpine: the prisma schemas
+# declare no binaryTargets (a musl engine would have to be added) and
+# @node-rs/argon2 ships glibc prebuilds. Bun is the dev toolchain only —
+# the code has no Bun runtime APIs, so the base can be swapped for node
+# later without touching src/.
+
+FROM oven/bun:1
+WORKDIR /app
+
+# bunfig.toml pins the hoisted linker — keep the repo's install layout so
+# workspace deps land in the shared /app/node_modules tree.
+COPY package.json bun.lock bunfig.toml ./
+# Every app tsconfig extends ../../tsconfig.base.json; bun's transpiler reads
+# it at runtime (experimentalDecorators/emitDecoratorMetadata — NestJS DI).
+COPY tsconfig.json tsconfig.base.json ./
+# Copy ALL workspaces, not only apps/${APP}: the root lockfile covers
+# `apps/*` + `packages/*` and `bun install --frozen-lockfile` fails on a
+# partial tree. Bonus: the install layer is shared/cached between the
+# backend images.
+COPY packages ./packages
+COPY apps ./apps
+
+# Shared boot script: `prisma migrate deploy` (when PRISMA_SCHEMA is set) →
+# optional `db:seed` (RUN_SEED=1) → `exec bun run src/main.ts` in the app dir.
+COPY infra/docker/entrypoint.sh /usr/local/bin/app-entrypoint.sh
+RUN chmod +x /usr/local/bin/app-entrypoint.sh
+
+RUN bun install --frozen-lockfile
+
+# APP — workspace dir under apps/ (e.g. auth-service, api-gateway). Baked
+#       as ENV so the entrypoint can `cd /app/apps/${APP}`.
+# PRISMA_SCHEMA — repo-root-relative schema path for DB-backed services.
+#       Generates the client into apps/*/src/generated/prisma at build time;
+#       the entrypoint reuses the same env to `migrate deploy` at start.
+#       Leave unset/empty for cart-service and api-gateway (no database).
+ARG APP
+ARG PRISMA_SCHEMA=""
+ENV APP=${APP} \
+    PRISMA_SCHEMA=${PRISMA_SCHEMA}
+RUN if [ -n "${PRISMA_SCHEMA}" ]; then \
+      bunx prisma generate --schema "${PRISMA_SCHEMA}"; \
+    fi
+
+ENTRYPOINT ["/usr/local/bin/app-entrypoint.sh"]

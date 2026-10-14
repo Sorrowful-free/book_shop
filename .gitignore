@@ -12,6 +12,8 @@ node_modules
 .env
 .env.*
 !.env.example
+# generated JWT dev keypair for the compose `apps` profile (infra:secrets)
+infra/secrets/
 
 # Logs
 logs

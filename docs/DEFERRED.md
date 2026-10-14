@@ -115,13 +115,17 @@ ordering включает per-order (created→paid→cancelled по заказ�
 
 ## Конфигурация / эксплуатация
 
-### O1. Docker-образы для сервисов (включая web)
-`infra/docker-compose.yml` поднимает только инфру (postgres/redis/kafka/
-kafka-ui). Сами сервисы запускаются локально `bun run start`. Для полного
-`docker compose up`-деплоя нужны Dockerfile на каждый app + healthchecks.
-То же для `apps/web` — `nuxt build` производит self-contained `.output/`
-(node-preset сервер, `node .output/server/index.mjs`), Dockerfile нет.
-**Когда:** этап деплоя/демонстрации после gateway+web.
+### O1. Docker-образы для сервисов (включая web) — RESOLVED
+Закрыто по спеке `docs/specs/07-docker.md` (approved): единый
+`infra/docker/Dockerfile.service` (build-arg `APP`/`PRISMA_SCHEMA`,
+`oven/bun:1` Debian) для бэкендов, двухстадийный
+`infra/docker/Dockerfile.web` (`oven/bun:1` → `node:22-alpine`, nitro
+`.output`), compose-профиль `apps` в `infra/docker-compose.yml` (gRPC-порты
+не публикуются; снаружи только gateway :3000 и web :3001), docker-secrets
+через `infra/scripts/gen-secrets.sh` → `infra/secrets/*.pem` (gitignored),
+миграции `migrate deploy` + сид catalog в `infra/docker/entrypoint.sh`,
+healthcheck'и и цепочка depends_on. Запуск: `bun run infra:secrets &&
+bun run apps:up`.
 
 ### O2. `seedAdmin` findUnique→upsert — микро-TOCTOU
 Между `findUnique` (админ есть?) и `upsert` есть окно: два параллельных

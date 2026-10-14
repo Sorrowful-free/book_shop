@@ -54,6 +54,31 @@ bun run lint         # eslint
 bun run typecheck    # tsc --noEmit per workspace
 ```
 
+## Run with Docker
+
+The whole stack — infra plus all six apps — runs in Docker; no local
+services needed (spec: `docs/specs/07-docker.md`). Bun on the host is only
+used once to generate the dev JWT keypair (`apps/auth-service`'s
+`gen-keys`, needs `bun install` first):
+
+```bash
+bun run infra:secrets   # one-time: JWT keypair → infra/secrets/*.pem (gitignored)
+bun run apps:up         # docker compose --profile apps up -d --build
+bun run apps:logs       # follow logs
+bun run apps:down       # stop the whole stack — `down` also covers the
+                        # profile-less infra services, so this stops
+                        # postgres/redis/kafka too
+```
+
+Then open `http://localhost:3001` (storefront), `http://localhost:3000`
+(api-gateway, swagger at `/api/docs`), `http://localhost:8085` (kafka-ui).
+The gRPC ports are internal-only. Seeded credentials: `admin` / `admin`
+(ADMIN role); the catalog starts with demo books.
+
+`bun run infra:up` (no `--profile`) still starts only the infra services —
+local development workflow is unchanged. See `infra/README.md` for the
+secrets/migrations details.
+
 ## Development workflow
 
 Each service is built in its own plan/subagent, spec-first:

@@ -22,3 +22,46 @@ bun run infra:down    # stop
 Databases are per-service (`auth`, `catalog`, `order`) on a single PostgreSQL
 instance — logical database-per-service. Re-run `init/*.sql` from scratch by
 removing the `postgres-data` volume.
+
+## Full stack (`apps` profile)
+
+The same `docker-compose.yml` also runs the six apps — 4 gRPC services,
+api-gateway and the Nuxt web frontend — under the `apps` profile
+(spec `docs/specs/07-docker.md`):
+
+```bash
+bun run infra:secrets   # one-time: JWT keypair → secrets/*.pem (gitignored)
+bun run apps:up         # build images + up -d (infra starts too — it's a dependency)
+bun run apps:logs       # follow logs
+bun run apps:down       # stop EVERYTHING (apps + infra — `down` covers the
+                        # profile-less infra services as well)
+```
+
+- `infra/secrets/` must exist before `apps:up` — compose fails on missing
+  secret files. `gen-secrets.sh` runs `bun run gen-keys` in
+  `apps/auth-service` and writes the base64-PEM values to
+  `secrets/jwt_private.pem` + `secrets/jwt_public.pem` (chmod 600).
+  `jwt_private` is mounted only into auth-service; `jwt_public` into every
+  JWT-verifying service. Re-run to rotate — outstanding JWTs die.
+- Endpoints: web `http://localhost:3001`, api-gateway
+  `http://localhost:3000` (swagger `/api/docs`), kafka-ui `:8085`. gRPC
+  ports 50051–50054 are internal-only, reachable by compose DNS name.
+- Demo accounts: `admin`/`admin` (seeded by auth-service; optional employer
+  via `SEED_EMPLOYER_*` env). catalog-service runs its idempotent book seed
+  on every start (`RUN_SEED=1` in the entrypoint).
+- Schema caveat: containers run `prisma migrate deploy` against committed
+  `prisma/migrations/` only. If a dev branch ever left schema drift on the
+  `postgres-data` volume, reset with
+  `docker compose -f infra/docker-compose.yml --profile apps down -v`
+  (drops postgres/redis/kafka data — registered users and carts are lost).
+- Broken container DNS (VPN/firewall dropping outbound UDP:53 from bridge
+  networks): `bun install` inside `docker build` fails with
+  `DNSResolveFailed`. Merge `docker-compose.hostnet.yml` into the BUILD
+  step only — it sets `network: host` on every `build:` block; runtime is
+  unaffected (compose service discovery uses the embedded resolver):
+
+  ```bash
+  docker compose -f infra/docker-compose.yml \
+    -f infra/docker-compose.hostnet.yml --profile apps build
+  docker compose -f infra/docker-compose.yml --profile apps up -d
+  ```

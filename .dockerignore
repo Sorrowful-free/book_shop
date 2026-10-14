@@ -1,11 +1,28 @@
+# Docker build context is the repo root (compose `build.context: ..`,
+# docs/specs/07-docker.md §3.3). node_modules/.output must stay out of the
+# context — they would bloat the transfer and break layer caching — and
+# .env files must never reach an image (localhost addresses inside would
+# shadow the compose wiring; `dotenv` only fills unset vars, so this is a
+# hygiene guarantee, not a correctness one).
+
 node_modules
-dist
-coverage
+**/node_modules
+**/.output
+**/.nuxt
+**/dist
+**/coverage
+**/src/generated
+**/*.tsbuildinfo
+
+# local env / dev secrets — compose env + docker secrets are the only source
+**/.env
+**/.env.*
+infra/secrets
+
 .git
-.gitignore
-Dockerfile
-docker-compose.yml
-.dockerignore
-README.md
-.vscode
-.env
+docs
+
+# The context DOES need infra/docker/ (Dockerfile.service COPYs
+# infra/docker/entrypoint.sh) — so `infra` is NOT ignored wholesale, only
+# the pieces Docker never consumes.
+infra/postgres
