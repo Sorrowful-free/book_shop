@@ -34,6 +34,7 @@ import { AuthGuard, RolesGuard } from "./guards";
 import { AuthController } from "./controllers/auth.controller";
 import { BooksController } from "./controllers/books.controller";
 import { CartController } from "./controllers/cart.controller";
+import { CoversController } from "./controllers/covers.controller";
 import { OrdersController } from "./controllers/orders.controller";
 
 const logger = new Logger("AppModule");
@@ -47,6 +48,7 @@ function envOr(key: string, fallback: string): string {
     AuthController,
     BooksController,
     CartController,
+    CoversController,
     OrdersController
   ],
   providers: [

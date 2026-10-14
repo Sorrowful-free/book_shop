@@ -4,6 +4,7 @@ import {
   hasCookie,
   mapProxyPath,
   mergeCookies,
+  relayResponseHeaders,
   responseCookies,
   shouldAttemptRefresh
 } from "./proxy";
@@ -24,6 +25,28 @@ describe("mapProxyPath", () => {
   it("strips a trailing slash on the gateway base", () => {
     expect(mapProxyPath("http://gw:3000/", "/api/cart")).toBe(
       "http://gw:3000/api/v1/cart"
+    );
+  });
+
+  it("passes an already-versioned /api/v1/* path through unchanged", () => {
+    // backend-issued cover URLs reach the BFF as /api/v1/covers/<key>
+    // (spec 08 §6) — a second v1 prefix must not be stacked on.
+    expect(
+      mapProxyPath(
+        "http://localhost:3000",
+        "/api/v1/covers/2f7a3c1e-9b0d-4e5f-8a6b-7c8d9e0f1a2b.png"
+      )
+    ).toBe(
+      "http://localhost:3000/api/v1/covers/2f7a3c1e-9b0d-4e5f-8a6b-7c8d9e0f1a2b.png"
+    );
+  });
+
+  it("keeps prefixing non-versioned /api/* paths", () => {
+    expect(mapProxyPath("http://gw:3000", "/api/covers/upload")).toBe(
+      "http://gw:3000/api/v1/covers/upload"
+    );
+    expect(mapProxyPath("http://gw:3000", "/api/v10/covers/x")).toBe(
+      "http://gw:3000/api/v1/v10/covers/x"
     );
   });
 });
@@ -91,6 +114,31 @@ describe("responseCookies", () => {
 
   it("returns [] when the response carries no cookies", () => {
     expect(responseCookies({ headers: new Headers() })).toEqual([]);
+  });
+});
+
+describe("relayResponseHeaders", () => {
+  it("relays content-type, content-length and cache-control verbatim", () => {
+    // spec 08 §5/§10: the immutable Cache-Control on GET /covers/:key must
+    // survive the BFF — a header dropped here silently uncaches covers.
+    const headers = new Headers({
+      "content-type": "image/png",
+      "content-length": "11",
+      "cache-control": "public, max-age=31536000, immutable",
+      "x-internal": "not-relayed"
+    });
+    expect(relayResponseHeaders({ headers })).toEqual([
+      ["content-type", "image/png"],
+      ["content-length", "11"],
+      ["cache-control", "public, max-age=31536000, immutable"]
+    ]);
+  });
+
+  it("omits headers the upstream response does not carry", () => {
+    const headers = new Headers({ "content-type": "application/json" });
+    expect(relayResponseHeaders({ headers })).toEqual([
+      ["content-type", "application/json"]
+    ]);
   });
 });
 

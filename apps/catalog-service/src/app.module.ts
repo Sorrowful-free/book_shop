@@ -21,6 +21,8 @@ import {
 } from "@book-shop/common";
 import { CatalogController } from "./catalog.controller";
 import { CatalogService } from "./catalog.service";
+import { CoversService } from "./covers/covers.service";
+import { MinioCoverStorage } from "./covers/minio-cover-storage";
 import { PrismaCatalogRepository } from "./prisma.repository";
 import { PrismaService } from "./prisma.service";
 import { ReservationSweeper } from "./reservation-sweeper";
@@ -66,6 +68,32 @@ function envInt(key: string, fallback: number): number {
           reservationTtlSec: envInt("RESERVATION_TTL_SEC", 900)
         }),
       inject: [PrismaCatalogRepository]
+    },
+    {
+      // Cover object store (spec 08 §4/§8): ops calls go to the internal
+      // S3_ENDPOINT, presigns are computed for the browser-reachable
+      // S3_PUBLIC_ENDPOINT — one client per endpoint inside the adapter.
+      provide: MinioCoverStorage,
+      useFactory: () =>
+        new MinioCoverStorage({
+          endpoint: envOr("S3_ENDPOINT", "http://localhost:9000"),
+          publicEndpoint: envOr("S3_PUBLIC_ENDPOINT", "http://localhost:9000"),
+          bucket: envOr("S3_BUCKET", "book-covers"),
+          region: envOr("S3_REGION", "us-east-1"),
+          // <NAME>_FILE (docker secrets) wins over inline (repo convention)
+          accessKey: resolveSecret("S3_ACCESS_KEY"),
+          secretKey: resolveSecret("S3_SECRET_KEY")
+        })
+    },
+    {
+      provide: CoversService,
+      useFactory: (storage: MinioCoverStorage) =>
+        new CoversService({
+          storage,
+          maxUploadBytes: envInt("COVER_UPLOAD_MAX_BYTES", 2 * 1024 * 1024),
+          uploadTtlSec: envInt("COVER_UPLOAD_TTL_SEC", 600)
+        }),
+      inject: [MinioCoverStorage]
     },
     {
       // Redis — JWT denylist reads only (`auth:revoked:{jti}`)

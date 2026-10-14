@@ -36,6 +36,71 @@ function toForm(book: RestBook | null): BookForm {
 const form = ref<BookForm>(toForm(props.book));
 const submitting = ref(false);
 
+// ---- cover upload (spec 08 §6.2): presign via the BFF, then a direct
+// multipart POST to MinIO; the returned coverUrl lands in the URL field.
+const uploading = ref(false);
+const uploadError = ref("");
+const coverPreview = ref<string | null>(null); // createObjectURL of the file
+const uploadedCoverUrl = ref<string | null>(null); // server path it maps to
+const coverPreviewOk = ref(true);
+
+watch(
+  () => form.value.coverUrl,
+  () => {
+    // a broken URL typed/pasted by hand re-arms the preview check
+    coverPreviewOk.value = true;
+  }
+);
+
+const previewSrc = computed(() => {
+  if (!coverPreviewOk.value) {
+    return null;
+  }
+  const manual = form.value.coverUrl.trim();
+  if (!manual) {
+    return null;
+  }
+  // instant local preview for the just-uploaded file — no proxy round-trip
+  return manual === uploadedCoverUrl.value
+    ? (coverPreview.value ?? manual)
+    : manual;
+});
+
+async function onCoverSelected(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ""; // re-selecting the same file must fire again
+  if (!file) {
+    return;
+  }
+  uploadError.value = "";
+  const invalid = validateCoverFile(file);
+  if (invalid) {
+    uploadError.value = invalid;
+    return;
+  }
+  uploading.value = true;
+  try {
+    const coverUrl = await uploadCover(file);
+    form.value.coverUrl = coverUrl;
+    uploadedCoverUrl.value = coverUrl;
+    if (coverPreview.value) {
+      URL.revokeObjectURL(coverPreview.value);
+    }
+    coverPreview.value = URL.createObjectURL(file);
+    coverPreviewOk.value = true;
+  } catch (error) {
+    uploadError.value =
+      error instanceof Error ? error.message : "Cover upload failed";
+  } finally {
+    uploading.value = false;
+  }
+}
+
+function onCoverPreviewError() {
+  coverPreviewOk.value = false;
+}
+
 async function submit() {
   submitting.value = true;
   const payload: Record<string, unknown> = {
@@ -113,14 +178,6 @@ async function submit() {
           />
         </label>
         <label class="text-sm">
-          Cover URL
-          <input
-            v-model="form.coverUrl"
-            type="url"
-            class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
-          />
-        </label>
-        <label class="text-sm">
           Price (USD) *
           <input
             v-model="form.price"
@@ -141,6 +198,44 @@ async function submit() {
             class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
           />
         </label>
+        <div class="col-span-2 text-sm">
+          <label>
+            Cover URL
+            <input
+              v-model="form.coverUrl"
+              type="text"
+              class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5"
+            />
+          </label>
+          <div class="mt-2 flex items-center gap-3">
+            <input
+              type="file"
+              :accept="COVER_ACCEPT"
+              :disabled="uploading"
+              class="text-xs"
+              @change="onCoverSelected"
+            />
+            <span v-if="uploading" class="text-xs text-gray-500">
+              Uploading…
+            </span>
+            <img
+              v-if="previewSrc"
+              :src="previewSrc"
+              alt="cover preview"
+              class="h-16 w-12 rounded border border-gray-200 object-cover"
+              @error="onCoverPreviewError"
+            />
+            <div
+              v-else
+              class="flex h-16 w-12 items-center justify-center rounded bg-indigo-50 text-[10px] text-indigo-300"
+            >
+              No cover
+            </div>
+          </div>
+          <p v-if="uploadError" class="mt-1 text-xs text-red-600">
+            {{ uploadError }}
+          </p>
+        </div>
         <label class="col-span-2 text-sm">
           Description
           <textarea
@@ -165,7 +260,7 @@ async function submit() {
           <button
             type="submit"
             class="rounded bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
-            :disabled="submitting"
+            :disabled="submitting || uploading"
           >
             {{ book ? "Save changes" : "Create book" }}
           </button>

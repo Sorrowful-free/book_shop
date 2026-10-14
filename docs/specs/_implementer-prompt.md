@@ -51,3 +51,16 @@ and the results.
 - Родитель обязан прогнать после каждой background-волны:
   `bun install` → `bun run lint` (с --fix) → `bun run typecheck` →
   `bun run test:unit` → e2e на поднятой инфре.
+
+## Уроки из ревью (добавлять в промпт при повторении класса ошибки)
+
+- Acceptance-критерии спеки — буквальны: коды статусов, строки, лимиты
+  реализуются и ассертятся дословно (08 поймал 201-vs-200 на
+  `POST /covers/upload`).
+- Литерал (regex, mime-лист, path-префикс), нужный по обе стороны
+  сервисной границы, живёт в `@book-shop/contracts` — иначе 4 копии
+  в расходятся (08: cover key/mime в catalog+gateway+web+proto-комменте).
+- Review-дифф для read-only агентов: `git add -N` на untracked-файлы +
+  `git diff HEAD > .scratch/review.diff` (каталог в .gitignore), передать
+  путь — надёжнее встраивания диффа в промпт. `add -N` ставит только
+  intent-to-add, безопасно для чужого дерева.

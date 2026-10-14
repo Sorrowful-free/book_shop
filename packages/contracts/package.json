@@ -6,6 +6,7 @@
   "description": "Shared service contracts: protobuf files, Kafka topics and event payloads",
   "exports": {
     ".": "./src/index.ts",
+    "./covers": "./src/covers.ts",
     "./proto/*": "./proto/*",
     "./gen/*": "./src/gen/*.ts"
   },

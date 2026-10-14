@@ -70,6 +70,13 @@ export interface CatalogClient {
     request: catalogProto.RestoreBookRequest,
     metadata: Metadata
   ): Promise<catalogProto.RestoreBookResponse>;
+  createCoverUpload(
+    request: catalogProto.CreateCoverUploadRequest,
+    metadata: Metadata
+  ): Promise<catalogProto.CreateCoverUploadResponse>;
+  getBookCover(
+    request: catalogProto.GetBookCoverRequest
+  ): Promise<catalogProto.GetBookCoverResponse>;
 }
 
 export interface CartClient {
@@ -288,6 +295,16 @@ export function createCatalogGrpcClient(
         request,
         metadata
       ),
+    createCoverUpload: (request, metadata) =>
+      unary<
+        catalogProto.CreateCoverUploadRequest,
+        catalogProto.CreateCoverUploadResponse
+      >(client, "createCoverUpload", request, metadata),
+    getBookCover: (request) =>
+      unary<
+        catalogProto.GetBookCoverRequest,
+        catalogProto.GetBookCoverResponse
+      >(client, "getBookCover", request, NO_METADATA),
     close: () => client.close()
   };
 }

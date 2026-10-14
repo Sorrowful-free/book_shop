@@ -8,7 +8,9 @@
 // int validators see real numbers (ValidationPipe transform: true).
 
 import { Type } from "class-transformer";
+import { COVER_CONTENT_TYPES } from "@book-shop/contracts";
 import {
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -171,6 +173,17 @@ export class UpdateBookDto {
   @IsInt()
   @Min(0)
   stock?: number;
+}
+
+// ---------------------------------------------------------------------------
+// covers (spec 08 §5) — key/mime constants are shared via @book-shop/contracts
+// (COVER_KEY_PATTERN is imported by covers.controller directly)
+// ---------------------------------------------------------------------------
+
+export class CreateCoverUploadDto {
+  /** mime whitelist — catalog re-checks the same list on the wire call. */
+  @IsIn(Object.keys(COVER_CONTENT_TYPES))
+  contentType!: string;
 }
 
 // ---------------------------------------------------------------------------

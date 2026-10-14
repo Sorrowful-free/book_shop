@@ -46,6 +46,9 @@ const REDIS_URL = "redis://localhost:6379";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** A regex-valid key the catalog stub answers NOT_FOUND for. */
+const MISSING_COVER_KEY = "00000000-0000-0000-0000-000000000000.png";
+
 type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
 let signingKey: SigningKey;
 let app: INestApplication;
@@ -301,7 +304,27 @@ class CatalogStub extends Stub {
       ),
       reserveStock: unimplementedStub,
       commitStock: unimplementedStub,
-      releaseStock: unimplementedStub
+      releaseStock: unimplementedStub,
+      createCoverUpload: this.handle(
+        "createCoverUpload",
+        (r: catalogProto.CreateCoverUploadRequest) => ({
+          uploadUrl: "http://localhost:9000/book-covers",
+          fields: { key: "k", policy: "p", "Content-Type": r.contentType },
+          coverUrl: `/api/v1/covers/${randomUUID()}.png`
+        })
+      ),
+      getBookCover: this.handle(
+        "getBookCover",
+        (r: catalogProto.GetBookCoverRequest) => {
+          if (r.key === MISSING_COVER_KEY) {
+            throw new StubResponse(status.NOT_FOUND, "cover not found");
+          }
+          return {
+            data: Buffer.from("cover-bytes"),
+            contentType: "image/png"
+          };
+        }
+      )
     };
   }
 }
@@ -693,6 +716,74 @@ describe("books proxy (spec §2)", () => {
     const one = await http.get("/api/v1/books/b-1");
     expect(one.status).toBe(200);
     expect(one.body.bookName).toBe("Dune");
+  });
+});
+
+describe("covers proxy (spec 08 §5)", () => {
+  it("POST /covers/upload is staff-only: anon → 401, CUSTOMER → 403, EMPLOYER/ADMIN → 200", async () => {
+    const anon = await http
+      .post("/api/v1/covers/upload")
+      .send({ contentType: "image/png" });
+    expect(anon.status).toBe(401);
+
+    const customer = await signToken(UserRole.Customer);
+    const denied = await http
+      .post("/api/v1/covers/upload")
+      .set("Authorization", `Bearer ${customer}`)
+      .send({ contentType: "image/png" });
+    expect(denied.status).toBe(403);
+    expect(catalogStub.callsOf("createCoverUpload")).toHaveLength(0);
+
+    for (const role of [UserRole.Employer, UserRole.Admin]) {
+      const token = await signToken(role);
+      const res = await http
+        .post("/api/v1/covers/upload")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ contentType: "image/png" });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        uploadUrl: "http://localhost:9000/book-covers",
+        coverUrl: expect.stringMatching(/^\/api\/v1\/covers\//)
+      });
+      expect(res.body.fields).toBeDefined();
+      // the caller's JWT is forwarded for the service-side re-check
+      const call = catalogStub.callsOf("createCoverUpload").at(-1)!;
+      expect(call.authorization).toBe(`Bearer ${token}`);
+    }
+  });
+
+  it("POST /covers/upload rejects a mime outside the whitelist → 400", async () => {
+    const admin = await signToken(UserRole.Admin);
+    const res = await http
+      .post("/api/v1/covers/upload")
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ contentType: "image/gif" });
+    expect(res.status).toBe(400);
+    expect(catalogStub.callsOf("createCoverUpload")).toHaveLength(0);
+  });
+
+  it("GET /covers/:key is public and streams bytes with immutable caching", async () => {
+    const key = `${randomUUID()}.png`;
+    const res = await http.get(`/api/v1/covers/${key}`);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("image/png");
+    expect(res.headers["cache-control"]).toBe(
+      "public, max-age=31536000, immutable"
+    );
+    expect(res.headers["content-length"]).toBe("11");
+    expect(res.body.toString()).toBe("cover-bytes");
+  });
+
+  it("GET /covers/:key maps NOT_FOUND → 404 and INVALID_ARGUMENT → 400", async () => {
+    const missing = await http.get(`/api/v1/covers/${MISSING_COVER_KEY}`);
+    expect(missing.status).toBe(404);
+
+    // malformed keys never reach upstream
+    for (const bad of ["..", "garbage", `${randomUUID()}.gif`]) {
+      const res = await http.get(`/api/v1/covers/${encodeURIComponent(bad)}`);
+      expect(res.status).toBe(400);
+    }
+    expect(catalogStub.callsOf("getBookCover")).toHaveLength(1);
   });
 });
 

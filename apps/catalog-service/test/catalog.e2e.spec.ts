@@ -225,7 +225,14 @@ async function setBaseEnv(): Promise<void> {
       "base64"
     ),
     RESERVATION_TTL_SEC: "900",
-    RESERVATION_SWEEP_INTERVAL_SEC: "1"
+    RESERVATION_SWEEP_INTERVAL_SEC: "1",
+    // covers (spec 08) — real MinIO from infra/docker-compose.yml
+    S3_ENDPOINT: "http://localhost:9000",
+    S3_PUBLIC_ENDPOINT: "http://localhost:9000",
+    S3_BUCKET: "book-covers",
+    S3_REGION: "us-east-1",
+    S3_ACCESS_KEY: "minioadmin",
+    S3_SECRET_KEY: "minioadmin"
   });
 }
 
@@ -874,4 +881,115 @@ describe("outbox relay survives broker outage", () => {
       await recoveredApp.close();
     }
   }, 120_000);
+});
+
+describe("book covers — real MinIO presign/upload/serve (spec 08)", () => {
+  let coversApp: INestMicroservice;
+  let covers: CatalogClient;
+
+  beforeAll(async () => {
+    coversApp = await startApp(50075);
+    covers = grpcClient("127.0.0.1:50075");
+  }, 60_000);
+
+  afterAll(async () => {
+    await closeProxies();
+    await coversApp?.close();
+  }, 30_000);
+
+  // Browser-style multipart upload straight to the presigned URL.
+  async function postToMinio(
+    presign: catalogProto.CreateCoverUploadResponse,
+    payload: Blob
+  ): Promise<Response> {
+    const body = new FormData();
+    for (const [name, value] of Object.entries(presign.fields)) {
+      body.append(name, value);
+    }
+    body.append("file", payload, "cover.png");
+    return fetch(presign.uploadUrl, { method: "POST", body });
+  }
+
+  const PNG_BYTES = Buffer.from(
+    "89504e470d0a1a0a0000000d494844520000000100000001080600000" +
+      "01f15c4890000000d49444154789c626001000000ffff030000060005" +
+      "57bfabd40000000049454e44ae426082",
+    "hex"
+  );
+
+  it("CreateCoverUpload → browser POST to MinIO → GetBookCover roundtrip", async () => {
+    const admin = bearer(await signToken(UserRole.Admin));
+    const presign = await call(
+      covers.createCoverUpload({ contentType: "image/png" }, admin)
+    );
+    expect(presign.coverUrl).toMatch(/^\/api\/v1\/covers\/[0-9a-f-]{36}\.png$/);
+    expect(presign.fields.key).toBe(
+      presign.coverUrl.slice("/api/v1/covers/".length)
+    );
+    // signed for the browser-reachable endpoint — never the internal one
+    expect(presign.uploadUrl).toContain("http://localhost:9000/");
+
+    const upload = await postToMinio(
+      presign,
+      new Blob([PNG_BYTES], { type: "image/png" })
+    );
+    expect(upload.status).toBeLessThan(300);
+
+    const key = presign.fields.key;
+    const got = await call(covers.getBookCover({ key }));
+    expect(Buffer.from(got.data).equals(PNG_BYTES)).toBe(true);
+    expect(got.contentType).toBe("image/png");
+  }, 60_000);
+
+  it("enforces the staff matrix: anon → UNAUTHENTICATED, CUSTOMER → PERMISSION_DENIED", async () => {
+    await expectGrpcCode(
+      call(covers.createCoverUpload({ contentType: "image/png" })),
+      status.UNAUTHENTICATED
+    );
+    await expectGrpcCode(
+      call(
+        covers.createCoverUpload(
+          { contentType: "image/png" },
+          bearer(await signToken(UserRole.Customer))
+        )
+      ),
+      status.PERMISSION_DENIED
+    );
+  });
+
+  it("rejects a mime outside the whitelist at the boundary", async () => {
+    const admin = bearer(await signToken(UserRole.Admin));
+    await expectGrpcCode(
+      call(covers.createCoverUpload({ contentType: "image/gif" }, admin)),
+      status.INVALID_ARGUMENT
+    );
+  });
+
+  it("GetBookCover: malformed key → INVALID_ARGUMENT, missing object → NOT_FOUND", async () => {
+    await expectGrpcCode(
+      call(covers.getBookCover({ key: "../escape.png" })),
+      status.INVALID_ARGUMENT
+    );
+    await expectGrpcCode(
+      call(covers.getBookCover({ key: `${randomUUID()}.png` })),
+      status.NOT_FOUND
+    );
+  });
+
+  it("MinIO itself rejects a payload over the policy size cap", async () => {
+    const admin = bearer(await signToken(UserRole.Admin));
+    const presign = await call(
+      covers.createCoverUpload({ contentType: "image/png" }, admin)
+    );
+    const oversized = new Blob([Buffer.alloc(3 * 1024 * 1024)], {
+      type: "image/png"
+    });
+    const upload = await postToMinio(presign, oversized);
+    expect(upload.status).toBeGreaterThanOrEqual(400);
+    // and nothing was stored under the key
+    await expectGrpcCode(
+      call(covers.getBookCover({ key: presign.fields.key })),
+      status.NOT_FOUND
+    );
+  }, 60_000);
 });

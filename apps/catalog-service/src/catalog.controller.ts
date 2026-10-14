@@ -23,7 +23,9 @@ import { catalogProto } from "@book-shop/contracts";
 import type {
   CommitStockResponse,
   CreateBookResponse,
+  CreateCoverUploadResponse,
   DeleteBookResponse,
+  GetBookCoverResponse,
   GetBookResponse,
   GetBooksByIdsResponse,
   ListBooksResponse,
@@ -34,10 +36,13 @@ import type {
   UpdateBookResponse
 } from "@book-shop/contracts/gen/catalog";
 import { CatalogService } from "./catalog.service";
+import { CoversService } from "./covers/covers.service";
 import {
   CommitStockDto,
   CreateBookDto,
+  CreateCoverUploadDto,
   DeleteBookDto,
+  GetBookCoverDto,
   GetBookDto,
   GetBooksByIdsDto,
   ListBooksDto,
@@ -55,6 +60,7 @@ export class CatalogController
 {
   constructor(
     private readonly service: CatalogService,
+    private readonly covers: CoversService,
     private readonly verifier: JwtVerifier
   ) {}
 
@@ -135,6 +141,24 @@ export class CatalogController
     @Ctx() metadata?: Metadata
   ): Promise<ReleaseStockResponse> {
     return this.service.releaseStock(request, await this.callerFrom(metadata));
+  }
+
+  // ---- covers: EMPLOYER|ADMIN presign, public read (spec 08 §4) ----
+
+  async createCoverUpload(
+    @Payload(requestValidationPipe) request: CreateCoverUploadDto,
+    @Ctx() metadata?: Metadata
+  ): Promise<CreateCoverUploadResponse> {
+    return this.covers.createCoverUpload(
+      request,
+      await this.callerFrom(metadata)
+    );
+  }
+
+  getBookCover(
+    @Payload(requestValidationPipe) request: GetBookCoverDto
+  ): Promise<GetBookCoverResponse> {
+    return this.covers.getBookCover(request);
   }
 
   /** `authorization` metadata → verified UserContext, or null. */

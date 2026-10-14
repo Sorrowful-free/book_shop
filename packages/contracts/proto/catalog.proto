@@ -28,6 +28,12 @@ service CatalogService {
   rpc CommitStock(CommitStockRequest) returns (CommitStockResponse);
   // Any valid JWT — cancel a reservation.
   rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+  // EMPLOYER or ADMIN — presigned POST policy for a direct browser
+  // upload into S3. Returns url + form fields + the future cover_url.
+  rpc CreateCoverUpload(CreateCoverUploadRequest)
+      returns (CreateCoverUploadResponse);
+  // Public — serves a stored cover (the gateway proxies it to browsers).
+  rpc GetBookCover(GetBookCoverRequest) returns (GetBookCoverResponse);
 }
 
 message Book {
@@ -162,4 +168,29 @@ message ReleaseStockRequest {
 }
 
 message ReleaseStockResponse {
+}
+
+message CreateCoverUploadRequest {
+  // image/jpeg | image/png | image/webp — otherwise INVALID_ARGUMENT.
+  string content_type = 1;
+}
+
+message CreateCoverUploadResponse {
+  // Browser-reachable MinIO endpoint (S3_PUBLIC_ENDPOINT).
+  string upload_url = 1;
+  // POST-policy form fields (key, policy, signature, Content-Type…):
+  // the client POSTs multipart/form-data: fields + file.
+  map<string, string> fields = 2;
+  // Value for Book.cover_url: "/api/v1/covers/<key>".
+  string cover_url = 3;
+}
+
+message GetBookCoverRequest {
+  // "^[0-9a-f-]{36}\.(jpe?g|png|webp)$" — otherwise INVALID_ARGUMENT.
+  string key = 1;
+}
+
+message GetBookCoverResponse {
+  bytes data = 1;
+  string content_type = 2;
 }

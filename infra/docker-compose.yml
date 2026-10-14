@@ -92,6 +92,51 @@ services:
       kafka:
         condition: service_healthy
 
+  # -----------------------------------------------------------------------
+  # MinIO-compatible object store for book covers (spec 08 §2) — private
+  # `book-covers` bucket, owned by catalog-service. The browser uploads
+  # directly via presigned POST, so :9000 must stay published to the host.
+  #
+  # Image: pgsty/silo is the maintained MinIO fork — upstream removed
+  # minio/minio and minio/mc from Docker Hub (Sept 2026) and quay.io now
+  # requires auth. Same S3 API, MINIO_* env, /minio/* health routes and `mc`
+  # CLI; one image serves both this service and minio-init below.
+  # -----------------------------------------------------------------------
+
+  minio:
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
+    container_name: book-shop-minio
+    command: server /data --console-address ":9001"
+    environment:
+      # dev-only credentials, same convention as postgres/postgres
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # S3 API — needed by the BROWSER for the presigned POST
+      - "9001:9001" # console (dev convenience)
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46
+    container_name: book-shop-minio-init
+    # one-shot, like kafka-init: create the private bucket (mc mb is private
+    # by default) then exit — `--ignore-existing` keeps re-runs green.
+    command:
+      - sh
+      - -c
+      - |
+        mc alias set minio http://minio:9000 minioadmin minioadmin
+        mc mb --ignore-existing minio/book-covers
+    depends_on:
+      minio:
+        condition: service_healthy
+
   # -------------------------------------------------------------------------
   # Demo apps — profile `apps` (docs/specs/07-docker.md). `bun run infra:up`
   # (no profile) still starts infra only; `bun run apps:up` builds and starts
@@ -152,6 +197,10 @@ services:
     environment:
       GRPC_PORT: "50052"
       DATABASE_URL: postgresql://catalog_user:catalog_pass@postgres:5432/catalog_db
+      # covers (spec 08): ops calls hit the internal endpoint; presigns are
+      # computed for the host-published one so browser uploads match the sig
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
       # idempotent book seed, run by the entrypoint before the service starts
       RUN_SEED: "1"
     depends_on:
@@ -162,6 +211,10 @@ services:
       kafka:
         condition: service_healthy
       kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      minio-init:
         condition: service_completed_successfully
     healthcheck:
       test:
@@ -309,3 +362,4 @@ volumes:
   postgres-data:
   redis-data:
   kafka-data:
+  minio-data:

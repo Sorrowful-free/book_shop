@@ -10,12 +10,8 @@
 // gRPC controller (JwtVerifier + RedisTokenDenylist from @book-shop/common).
 
 import { Injectable } from "@nestjs/common";
-import { Metadata, status } from "@grpc/grpc-js";
-import { RpcException } from "@nestjs/microservices";
-import {
-  ERROR_DETAILS_METADATA_KEY,
-  type UserContext
-} from "@book-shop/common";
+import { status } from "@grpc/grpc-js";
+import { type UserContext } from "@book-shop/common";
 import {
   EVENT_TYPES,
   UserRole,
@@ -56,6 +52,8 @@ import type {
   NewBook
 } from "./repository";
 import { StockBelowReservedError } from "./repository";
+import { requireCaller, requireRole } from "./require-role";
+import { rpcError } from "./rpc-error";
 
 export interface CatalogServiceDeps {
   repository: CatalogRepository;
@@ -77,29 +75,6 @@ const MAX_PRICE = 99_999_999.99;
 
 /** int4 bound — books.stock and the aggregated reservation amount (F-C2). */
 const MAX_INT32 = 2_147_483_647;
-
-function rpcError(
-  code: status,
-  message: string,
-  details?: Record<string, unknown>
-): RpcException {
-  // Expose the grpc status on the exception itself too — some tests (and
-  // grpc-js error mapping) read `error.code` directly, others read the
-  // RpcException payload via `getError().code`. The top-level grpc-js
-  // `details` slot stays the human-readable message string.
-  const payload: Record<string, unknown> = { code, message };
-  if (details) {
-    // Machine-readable extra data (failing book ids, reservationStatus):
-    // inside the payload for in-process readers AND duplicated into the
-    // `error-details` trailer — the only channel that survives
-    // serverErrorToStatus on the wire (F-C4/F-O4 interop).
-    payload.details = details;
-    const trailers = new Metadata();
-    trailers.set(ERROR_DETAILS_METADATA_KEY, JSON.stringify(details));
-    payload.metadata = trailers;
-  }
-  return Object.assign(new RpcException(payload), { code });
-}
 
 function toTimestamp(date: Date): Timestamp {
   const ms = date.getTime();
@@ -203,7 +178,7 @@ export class CatalogService {
     request: CreateBookRequest,
     caller: UserContext | null
   ): Promise<CreateBookResponse> {
-    this.requireRole(caller, [UserRole.Employer, UserRole.Admin]);
+    requireRole(caller, [UserRole.Employer, UserRole.Admin]);
     const book = this.validateNewBook(request);
     if (book.isbn) {
       const existing = await this.repository.findBookByIsbn(book.isbn);
@@ -237,7 +212,7 @@ export class CatalogService {
     request: UpdateBookRequest,
     caller: UserContext | null
   ): Promise<UpdateBookResponse> {
-    this.requireRole(caller, [UserRole.Employer, UserRole.Admin]);
+    requireRole(caller, [UserRole.Employer, UserRole.Admin]);
     const patch = this.validatePatch(request);
     if (patch.isbn) {
       const existing = await this.repository.findBookByIsbn(patch.isbn);
@@ -286,7 +261,7 @@ export class CatalogService {
     request: DeleteBookRequest,
     caller: UserContext | null
   ): Promise<DeleteBookResponse> {
-    this.requireRole(caller, [UserRole.Admin]);
+    requireRole(caller, [UserRole.Admin]);
     const deleted = await this.repository.softDeleteBookWithOutbox(
       request.bookId,
       this.now(),
@@ -307,7 +282,7 @@ export class CatalogService {
     request: RestoreBookRequest,
     caller: UserContext | null
   ): Promise<RestoreBookResponse> {
-    this.requireRole(caller, [UserRole.Admin]);
+    requireRole(caller, [UserRole.Admin]);
     const restored = await this.repository.restoreBook(request.bookId);
     if (restored === "not_found") {
       throw rpcError(status.NOT_FOUND, `book ${request.bookId} not found`);
@@ -335,7 +310,7 @@ export class CatalogService {
     request: ReserveStockRequest,
     caller: UserContext | null
   ): Promise<ReserveStockResponse> {
-    this.requireCaller(caller);
+    requireCaller(caller);
     if (!request.items || request.items.length === 0) {
       throw rpcError(
         status.INVALID_ARGUMENT,
@@ -400,7 +375,7 @@ export class CatalogService {
     request: CommitStockRequest,
     caller: UserContext | null
   ): Promise<CommitStockResponse> {
-    this.requireCaller(caller);
+    requireCaller(caller);
     const result = await this.repository.commitReservation(
       request.reservationId,
       this.now()
@@ -432,7 +407,7 @@ export class CatalogService {
     request: ReleaseStockRequest,
     caller: UserContext | null
   ): Promise<ReleaseStockResponse> {
-    this.requireCaller(caller);
+    requireCaller(caller);
     const result = await this.repository.releaseReservation(
       request.reservationId,
       this.now()
@@ -459,30 +434,6 @@ export class CatalogService {
   // ---------------------------------------------------------------------
   // internals
   // ---------------------------------------------------------------------
-
-  private requireCaller(caller: UserContext | null): UserContext {
-    if (!caller) {
-      throw rpcError(
-        status.UNAUTHENTICATED,
-        "missing or invalid authentication token"
-      );
-    }
-    return caller;
-  }
-
-  private requireRole(
-    caller: UserContext | null,
-    roles: UserRole[]
-  ): UserContext {
-    const user = this.requireCaller(caller);
-    if (!roles.includes(user.role)) {
-      throw rpcError(
-        status.PERMISSION_DENIED,
-        `role ${user.role} is not allowed to perform this operation`
-      );
-    }
-    return user;
-  }
 
   private assertPage(offset: number, limit: number): void {
     if (!Number.isInteger(offset) || offset < 0) {

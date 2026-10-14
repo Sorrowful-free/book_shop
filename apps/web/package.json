@@ -13,6 +13,7 @@
     "start": "bun .output/server/index.mjs"
   },
   "dependencies": {
+    "@book-shop/contracts": "workspace:*",
     "@nuxtjs/tailwindcss": "6.14.0",
     "nuxt": "4.6.0"
   },

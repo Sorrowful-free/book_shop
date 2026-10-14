@@ -74,7 +74,7 @@ bun install                # all workspaces
 bun run infra:up           # postgres + redis + kafka + kafka-ui
 bun test                   # all tests (bun test, colocated *.spec.ts + test/)
 bun run test:unit          # colocated *.spec.ts only — no infra needed
-bun run test:e2e           # <app>/test/*.e2e.spec.ts — needs `infra:up`
+bun run test:e2e           # <app>/test/*.e2e.spec.ts — needs `infra:up` incl. minio
 bun run lint               # eslint
 bun run typecheck          # tsc --noEmit per workspace
 bun run proto:lint         # buf lint packages/contracts (needs buf CLI)
@@ -109,6 +109,9 @@ bun run db:generate        # prisma generate for every DB-backed service
   `{ code, message }` payload **plus** the same `code` assigned top-level
   (grpc-js reads `error.code` when the exception escapes raw)
 - Dependencies: add only via `bun add` — never hand-edit `bun.lock`
+- Literals shared across a service boundary (regex, mime lists, path
+  prefixes) live in `packages/contracts/src` — not as per-service copies
+  that drift (e.g. `covers.ts`: `COVER_KEY_PATTERN`, `COVER_CONTENT_TYPES`)
 - Dev secrets in `infra/` are local-only, never reused in production
 - No MongoDB anywhere — PostgreSQL (**Prisma** ORM) + Redis only
 - e2e needing JWTs: tests generate an Ed25519 key pair with `jose` (or reuse

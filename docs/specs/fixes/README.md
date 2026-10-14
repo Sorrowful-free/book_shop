@@ -33,6 +33,8 @@
 | `auth-service.md` | apps/auth-service | GC refresh-токенов, ленивый seed, ключи из файлов, boundary-валидация |
 | `catalog-service.md` | apps/catalog-service | e2e-TRUNCATE, overflow-гварды, boundary-валидация |
 | `cart-service.md` | apps/cart-service | merge corrupt guest cart, накопление amount, boundary-валидация |
+| `order-service.md` | apps/order-service | cancel/commit self-healing, reservation details, идемпотентность |
+| `web.md` | apps/web | счётчик корзины после checkout/pay (гонка Kafka-consumer'а) |
 
 ## Definition of Done для каждого пункта
 

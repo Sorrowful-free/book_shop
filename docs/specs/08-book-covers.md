@@ -1,6 +1,6 @@
 # 08. book-covers — обложки книг (MinIO + presigned upload)
 
-> Статус: draft
+> Статус: implemented
 > Proto: `packages/contracts/proto/catalog.proto` (расширение)
 > Затрагивает: `packages/contracts`, `apps/catalog-service`,
 > `apps/api-gateway`, `apps/web`, `infra/docker-compose.yml`,

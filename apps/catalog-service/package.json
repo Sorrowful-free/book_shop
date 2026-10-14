@@ -31,6 +31,7 @@
     "ioredis": "^5.4.1",
     "jose": "^6.2.12",
     "kafkajs": "^2.2.4",
+    "minio": "^8.0.7",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },

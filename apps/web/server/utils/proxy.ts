@@ -32,6 +32,38 @@ export const PROXY_REQUEST_HEADERS = [
 ] as const;
 
 /**
+ * Gateway response headers the BFF copies verbatim onto the client
+ * response (set-cookie is appended separately — it is multi-valued).
+ * `content-type` keeps the body decodable; `content-length` +
+ * `cache-control` preserve the immutable-cover caching contract
+ * (`Cache-Control: public, max-age=31536000, immutable`, spec 08 §5/§10)
+ * through the proxy instead of dropping it on the floor.
+ */
+export const PROXY_RESPONSE_HEADERS = [
+  "content-type",
+  "content-length",
+  "cache-control"
+] as const;
+
+/**
+ * [name, value] pairs from PROXY_RESPONSE_HEADERS that the upstream
+ * response actually carries — the caller setHeader()s each onto the
+ * h3 event's raw response.
+ */
+export function relayResponseHeaders(res: {
+  headers: Headers;
+}): [string, string][] {
+  const out: [string, string][] = [];
+  for (const name of PROXY_RESPONSE_HEADERS) {
+    const value = res.headers.get(name);
+    if (value) {
+      out.push([name, value]);
+    }
+  }
+  return out;
+}
+
+/**
  * Map a same-origin web path onto the gateway URL:
  * `/api/books?limit=2` → `{GATEWAY_URL}/api/v1/books?limit=2`
  * (client `/api/*` ↔ gateway global prefix `/api/v1`, spec 06 §3 / spec 05 §2).
@@ -42,6 +74,12 @@ export function mapProxyPath(
   search = ""
 ): string {
   const base = gatewayUrl.replace(/\/+$/, "");
+  // Already-versioned paths pass through unchanged: backend-issued cover
+  // URLs are `/api/v1/covers/<key>` (spec 08 §6) — re-prefixing would yield
+  // /api/v1/v1/... and break every <img> pointing at them.
+  if (apiPath.startsWith("/api/v1/")) {
+    return `${base}${apiPath}${search}`;
+  }
   const sub = apiPath.replace(/^\/api\/?/, "");
   return `${base}/api/v1/${sub}${search}`;
 }

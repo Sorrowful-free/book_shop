@@ -30,8 +30,10 @@ jobs:
 
       - name: Start infra
         run: |
-          docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka kafka-init
-          docker compose -f infra/docker-compose.yml wait kafka-init
+          docker compose -f infra/docker-compose.yml up -d --wait postgres redis kafka kafka-init minio minio-init
+          # one-shot init containers report "healthy" at start, not on
+          # completion — wait for both to actually finish (DEFERRED T4)
+          docker compose -f infra/docker-compose.yml wait kafka-init minio-init
 
       - name: Run tests
         run: bun test

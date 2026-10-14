@@ -149,6 +149,38 @@ export interface ReleaseStockRequest {
 export interface ReleaseStockResponse {
 }
 
+export interface CreateCoverUploadRequest {
+  /** image/jpeg | image/png | image/webp — otherwise INVALID_ARGUMENT. */
+  contentType: string;
+}
+
+export interface CreateCoverUploadResponse {
+  /** Browser-reachable MinIO endpoint (S3_PUBLIC_ENDPOINT). */
+  uploadUrl: string;
+  /**
+   * POST-policy form fields (key, policy, signature, Content-Type…):
+   * the client POSTs multipart/form-data: fields + file.
+   */
+  fields: { [key: string]: string };
+  /** Value for Book.cover_url: "/api/v1/covers/<key>". */
+  coverUrl: string;
+}
+
+export interface CreateCoverUploadResponse_FieldsEntry {
+  key: string;
+  value: string;
+}
+
+export interface GetBookCoverRequest {
+  /** "^[0-9a-f-]{36}\.(jpe?g|png|webp)$" — otherwise INVALID_ARGUMENT. */
+  key: string;
+}
+
+export interface GetBookCoverResponse {
+  data: Uint8Array;
+  contentType: string;
+}
+
 export const BOOKSHOP_CATALOG_V1_PACKAGE_NAME = "bookshop.catalog.v1";
 
 function createBaseBook(): Book {
@@ -1640,6 +1672,283 @@ export const ReleaseStockResponse: MessageFns<ReleaseStockResponse> = {
   },
 };
 
+function createBaseCreateCoverUploadRequest(): CreateCoverUploadRequest {
+  return { contentType: "" };
+}
+
+export const CreateCoverUploadRequest: MessageFns<CreateCoverUploadRequest> = {
+  encode(message: CreateCoverUploadRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.contentType !== "") {
+      writer.uint32(10).string(message.contentType);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCoverUploadRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCoverUploadRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.contentType = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCreateCoverUploadResponse(): CreateCoverUploadResponse {
+  return { uploadUrl: "", fields: {}, coverUrl: "" };
+}
+
+export const CreateCoverUploadResponse: MessageFns<CreateCoverUploadResponse> = {
+  encode(message: CreateCoverUploadResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.uploadUrl !== "") {
+      writer.uint32(10).string(message.uploadUrl);
+    }
+    globalThis.Object.entries(message.fields).forEach(([key, value]: [string, string]) => {
+      CreateCoverUploadResponse_FieldsEntry.encode({ key: key as any, value }, writer.uint32(18).fork()).join();
+    });
+    if (message.coverUrl !== "") {
+      writer.uint32(26).string(message.coverUrl);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCoverUploadResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCoverUploadResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.uploadUrl = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            const entry2 = CreateCoverUploadResponse_FieldsEntry.decode(reader, reader.uint32());
+            if (entry2.value !== undefined) {
+              message.fields[entry2.key] = entry2.value;
+            }
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.coverUrl = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseCreateCoverUploadResponse_FieldsEntry(): CreateCoverUploadResponse_FieldsEntry {
+  return { key: "", value: "" };
+}
+
+export const CreateCoverUploadResponse_FieldsEntry: MessageFns<CreateCoverUploadResponse_FieldsEntry> = {
+  encode(message: CreateCoverUploadResponse_FieldsEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateCoverUploadResponse_FieldsEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateCoverUploadResponse_FieldsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetBookCoverRequest(): GetBookCoverRequest {
+  return { key: "" };
+}
+
+export const GetBookCoverRequest: MessageFns<GetBookCoverRequest> = {
+  encode(message: GetBookCoverRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetBookCoverRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetBookCoverRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
+function createBaseGetBookCoverResponse(): GetBookCoverResponse {
+  return { data: new Uint8Array(0), contentType: "" };
+}
+
+export const GetBookCoverResponse: MessageFns<GetBookCoverResponse> = {
+  encode(message: GetBookCoverResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.data.length !== 0) {
+      writer.uint32(10).bytes(message.data);
+    }
+    if (message.contentType !== "") {
+      writer.uint32(18).string(message.contentType);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetBookCoverResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetBookCoverResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.data = reader.bytes();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.contentType = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+};
+
 /**
  * Book catalog: metadata, stock and temporary reservations.
  * See docs/specs/02-catalog-service.md.
@@ -1687,6 +1996,17 @@ export interface CatalogServiceClient {
   /** Any valid JWT — cancel a reservation. */
 
   releaseStock(request: ReleaseStockRequest, metadata?: Metadata): Observable<ReleaseStockResponse>;
+
+  /**
+   * EMPLOYER or ADMIN — presigned POST policy for a direct browser
+   * upload into S3. Returns url + form fields + the future cover_url.
+   */
+
+  createCoverUpload(request: CreateCoverUploadRequest, metadata?: Metadata): Observable<CreateCoverUploadResponse>;
+
+  /** Public — serves a stored cover (the gateway proxies it to browsers). */
+
+  getBookCover(request: GetBookCoverRequest, metadata?: Metadata): Observable<GetBookCoverResponse>;
 }
 
 /**
@@ -1769,6 +2089,23 @@ export interface CatalogServiceController {
     request: ReleaseStockRequest,
     metadata?: Metadata,
   ): Promise<ReleaseStockResponse> | Observable<ReleaseStockResponse> | ReleaseStockResponse;
+
+  /**
+   * EMPLOYER or ADMIN — presigned POST policy for a direct browser
+   * upload into S3. Returns url + form fields + the future cover_url.
+   */
+
+  createCoverUpload(
+    request: CreateCoverUploadRequest,
+    metadata?: Metadata,
+  ): Promise<CreateCoverUploadResponse> | Observable<CreateCoverUploadResponse> | CreateCoverUploadResponse;
+
+  /** Public — serves a stored cover (the gateway proxies it to browsers). */
+
+  getBookCover(
+    request: GetBookCoverRequest,
+    metadata?: Metadata,
+  ): Promise<GetBookCoverResponse> | Observable<GetBookCoverResponse> | GetBookCoverResponse;
 }
 
 export function CatalogServiceControllerMethods() {
@@ -1785,6 +2122,8 @@ export function CatalogServiceControllerMethods() {
       "reserveStock",
       "commitStock",
       "releaseStock",
+      "createCoverUpload",
+      "getBookCover",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
@@ -1920,6 +2259,32 @@ export const CatalogServiceService = {
       Buffer.from(ReleaseStockResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ReleaseStockResponse => ReleaseStockResponse.decode(value),
   },
+  /**
+   * EMPLOYER or ADMIN — presigned POST policy for a direct browser
+   * upload into S3. Returns url + form fields + the future cover_url.
+   */
+  createCoverUpload: {
+    path: "/bookshop.catalog.v1.CatalogService/CreateCoverUpload" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: CreateCoverUploadRequest): Buffer =>
+      Buffer.from(CreateCoverUploadRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CreateCoverUploadRequest => CreateCoverUploadRequest.decode(value),
+    responseSerialize: (value: CreateCoverUploadResponse): Buffer =>
+      Buffer.from(CreateCoverUploadResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CreateCoverUploadResponse => CreateCoverUploadResponse.decode(value),
+  },
+  /** Public — serves a stored cover (the gateway proxies it to browsers). */
+  getBookCover: {
+    path: "/bookshop.catalog.v1.CatalogService/GetBookCover" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetBookCoverRequest): Buffer => Buffer.from(GetBookCoverRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetBookCoverRequest => GetBookCoverRequest.decode(value),
+    responseSerialize: (value: GetBookCoverResponse): Buffer =>
+      Buffer.from(GetBookCoverResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetBookCoverResponse => GetBookCoverResponse.decode(value),
+  },
 } as const;
 
 export interface CatalogServiceServer extends UntypedServiceImplementation {
@@ -1944,6 +2309,13 @@ export interface CatalogServiceServer extends UntypedServiceImplementation {
   commitStock: handleUnaryCall<CommitStockRequest, CommitStockResponse>;
   /** Any valid JWT — cancel a reservation. */
   releaseStock: handleUnaryCall<ReleaseStockRequest, ReleaseStockResponse>;
+  /**
+   * EMPLOYER or ADMIN — presigned POST policy for a direct browser
+   * upload into S3. Returns url + form fields + the future cover_url.
+   */
+  createCoverUpload: handleUnaryCall<CreateCoverUploadRequest, CreateCoverUploadResponse>;
+  /** Public — serves a stored cover (the gateway proxies it to browsers). */
+  getBookCover: handleUnaryCall<GetBookCoverRequest, GetBookCoverResponse>;
 }
 
 function longToNumber(int64: { toString(): string }): number {

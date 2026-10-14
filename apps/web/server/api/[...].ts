@@ -24,6 +24,7 @@ import {
   mapProxyPath,
   mergeCookies,
   PROXY_REQUEST_HEADERS,
+  relayResponseHeaders,
   responseCookies,
   shouldAttemptRefresh
 } from "../utils/proxy";
@@ -76,15 +77,17 @@ async function callGateway(
   }
 }
 
-/** Copy status + content-type + set-cookie, then hand the raw body back. */
+/**
+ * Copy status + the relayable headers (content-type/length, cache-control
+ * for immutable covers) + set-cookie, then hand the raw body back.
+ */
 async function relay(
   event: Parameters<typeof setResponseStatus>[0],
   res: Response
 ): Promise<Uint8Array> {
   setResponseStatus(event, res.status);
-  const contentType = res.headers.get("content-type");
-  if (contentType) {
-    event.node.res.setHeader("content-type", contentType);
+  for (const [name, value] of relayResponseHeaders(res)) {
+    event.node.res.setHeader(name, value);
   }
   forwardSetCookies(event, getSetCookies(res));
   return new Uint8Array(await res.arrayBuffer());

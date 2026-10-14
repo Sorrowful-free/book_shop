@@ -2,16 +2,22 @@ import { Type } from "class-transformer";
 import {
   ArrayNotEmpty,
   IsArray,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   ValidateNested
 } from "class-validator";
-import type { catalogProto } from "@book-shop/contracts";
+import {
+  COVER_CONTENT_TYPES,
+  COVER_KEY_PATTERN,
+  type catalogProto
+} from "@book-shop/contracts";
 import { MAX_LIMIT } from "./catalog.service";
 
 /**
@@ -213,4 +219,20 @@ export class ReleaseStockDto implements catalogProto.ReleaseStockRequest {
   @IsString()
   @IsNotEmpty()
   reservationId!: string;
+}
+
+export class CreateCoverUploadDto
+  implements catalogProto.CreateCoverUploadRequest
+{
+  /** mime whitelist (spec 08 §3) — the service maps it to the extension. */
+  @IsString()
+  @IsIn(Object.keys(COVER_CONTENT_TYPES))
+  contentType!: string;
+}
+
+export class GetBookCoverDto implements catalogProto.GetBookCoverRequest {
+  /** `<uuid>.<ext>` only — arbitrary keys never reach the store (spec §3). */
+  @IsString()
+  @Matches(COVER_KEY_PATTERN)
+  key!: string;
 }

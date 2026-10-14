@@ -14,6 +14,9 @@ if (error.value) {
   });
 }
 
+// spec 08 §6.3: broken cover URLs degrade to the placeholder.
+const coverOk = ref(true);
+
 const amount = ref(1);
 const adding = ref(false);
 const added = ref(false);
@@ -54,10 +57,11 @@ async function addToCart() {
       class="mt-4 flex flex-col gap-6 rounded-lg border border-gray-200 bg-white p-6 sm:flex-row"
     >
       <img
-        v-if="book.coverUrl"
+        v-if="book.coverUrl && coverOk"
         :src="book.coverUrl"
         :alt="book.bookName"
         class="h-64 w-48 rounded object-cover"
+        @error="coverOk = false"
       />
       <div
         v-else

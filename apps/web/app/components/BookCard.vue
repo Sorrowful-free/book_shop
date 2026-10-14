@@ -8,6 +8,10 @@ const adding = ref(false);
 const added = ref(false);
 const purchasable = computed(() => isBookPurchasable(props.book));
 
+// spec 08 §6.3: a dead cover URL (Open Library 404, network) falls back
+// to the placeholder instead of a broken <img>.
+const coverOk = ref(true);
+
 async function addToCart() {
   adding.value = true;
   try {
@@ -35,10 +39,11 @@ async function addToCart() {
   >
     <NuxtLink :to="`/books/${book.bookId}`" class="block">
       <img
-        v-if="book.coverUrl"
+        v-if="book.coverUrl && coverOk"
         :src="book.coverUrl"
         :alt="book.bookName"
         class="h-44 w-full object-cover"
+        @error="coverOk = false"
       />
       <div
         v-else

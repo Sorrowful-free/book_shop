@@ -18,6 +18,9 @@ infra/secrets/
 # Logs
 logs
 *.log
+
+# agent scratch space (review diffs, temp artifacts)
+.scratch/
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*

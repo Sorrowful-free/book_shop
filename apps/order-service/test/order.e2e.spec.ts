@@ -438,7 +438,9 @@ const catalogHandlers: catalogProto.CatalogServiceServer = {
       return;
     }
     callback(null, {});
-  }
+  },
+  createCoverUpload: unimplementedStub,
+  getBookCover: unimplementedStub
 };
 
 function startStubServer(

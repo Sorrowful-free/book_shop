@@ -18,10 +18,28 @@ bun run infra:down    # stop
 | Kafka      | `localhost:29092`      | external listener for apps running on the host   |
 | Kafka      | `kafka:9092`           | internal listener for container-to-container     |
 | Kafka UI   | `http://localhost:8085`| topic/message browser                            |
+| MinIO (S3) | `localhost:9000`       | S3 API — private `book-covers` bucket (spec 08); the browser uploads covers here via presigned POST |
+| MinIO UI   | `http://localhost:9001`| console, dev creds `minioadmin`/`minioadmin`      |
 
 Databases are per-service (`auth`, `catalog`, `order`) on a single PostgreSQL
 instance — logical database-per-service. Re-run `init/*.sql` from scratch by
 removing the `postgres-data` volume.
+
+## MinIO / book covers
+
+- The MinIO service is `pgsty/silo`, the maintained MinIO fork: upstream
+  removed `minio/minio` + `minio/mc` from Docker Hub (Sept 2026) and
+  `quay.io` now requires auth. Same S3 API, `MINIO_*` env and `mc` CLI.
+- `minio-init` is a one-shot container (same pattern as `kafka-init`) that
+  creates the private `book-covers` bucket — `--ignore-existing` keeps it
+  idempotent. Check `docker compose ... wait minio-init` / its logs when
+  debugging (it can report "healthy" before it has run — see DEFERRED T4).
+- catalog-service reads objects on the internal endpoint (`S3_ENDPOINT`),
+  but presigns uploads for the host-published one (`S3_PUBLIC_ENDPOINT` =
+  `http://localhost:9000`) because the signature is computed over the host
+  the browser will actually call.
+- Data lives in the `minio-data` volume; `down -v` deletes uploaded covers.
+- `bun run test:e2e` needs this stack: catalog's covers e2e does real presign/upload/GET roundtrips against MinIO.
 
 ## Full stack (`apps` profile)
 
