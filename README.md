@@ -5,8 +5,30 @@ monorepo: NestJS backend services talking **gRPC** (sync) and **Kafka** (domain
 events), PostgreSQL per service, Redis for the cart, and a **Nuxt** (Vue SSR)
 frontend behind a REST api-gateway.
 
-> Status: foundation scaffold. Services are implemented one per plan via the
-> spec-driven workflow — see [AGENTS.md](AGENTS.md).
+> Status: all services implemented (specs 01–09). Built via the spec-driven
+> workflow — see [AGENTS.md](AGENTS.md).
+
+## Development timeline
+
+An example of a **time-to-market** strategy: the repository was originally
+prototyped in late 2022 (a single-service app, dormant for ~4 years), then
+rebuilt from scratch as a microservices monorepo. The full rebuild — four
+gRPC services, api-gateway, Nuxt SSR web app, Kafka transactional outbox,
+Docker stack — was delivered in **3 calendar days (12–14 Oct 2026, ~56
+hours elapsed), 29 commits**, starting from `79727a2`
+(`git log --oneline 79727a2~..HEAD`).
+
+| Commit    | Date   | Milestone                                                |
+| --------- | ------ | -------------------------------------------------------- |
+| `79727a2` | 12 Oct | rebuild kickoff — npm→Bun migration, monorepo pivot      |
+| `1086b4d` | 12 Oct | auth-service + workspace scaffold (spec 01)              |
+| `5e515ac` | 12 Oct | catalog + cart services, Prisma migrations (specs 02–03) |
+| `3022b9b` | 13 Oct | order-service — checkout saga (spec 04)                  |
+| `daa516f` | 13 Oct | api-gateway — REST→gRPC, JWT, BFF (spec 05)              |
+| `bac3579` | 13 Oct | web — Nuxt SSR storefront (spec 06)                      |
+| `715ba7a` | 14 Oct | Docker — full-stack compose (spec 07)                    |
+| `51e62f6` | 14 Oct | book covers — MinIO presigned uploads (spec 08)          |
+| `dfbf60a` | 14 Oct | design system — web visual refresh (spec 09)             |
 
 ## Architecture
 
